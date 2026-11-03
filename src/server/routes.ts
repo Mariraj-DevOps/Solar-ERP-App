@@ -286,8 +286,24 @@ apiRouter.post('/auth/login', (req: Request, res: Response) => {
   });
 });
 
+async function sendRealSmsOtp(mobileNumber: string, otpCode: string): Promise<boolean> {
+  const apiKey = process.env.TWOFACTOR_API_KEY;
+  if (!apiKey) return false;
+  try {
+    const formattedMobile = mobileNumber.replace(/\D/g, '').slice(-10);
+    const url = `https://2factor.in/API/V1/${apiKey}/SMS/${formattedMobile}/${otpCode}/SolarERP`;
+    const response = await fetch(url, { method: 'GET' });
+    const data = await response.json().catch(() => ({}));
+    console.log(`[2Factor SMS] Dispatched OTP to ${formattedMobile}:`, data);
+    return true;
+  } catch (err) {
+    console.error('[2Factor SMS Error]:', err);
+    return false;
+  }
+}
+
 // Method A: Mobile + OTP Authentication
-apiRouter.post('/auth/otp/request', (req: Request, res: Response) => {
+apiRouter.post('/auth/otp/request', async (req: Request, res: Response) => {
   const { mobileNumber } = req.body;
   if (!mobileNumber || typeof mobileNumber !== 'string') {
     return res.status(400).json({ error: 'Valid mobile number is required.' });
@@ -359,11 +375,19 @@ apiRouter.post('/auth/otp/request', (req: Request, res: Response) => {
     reason: `OTP requested for mobile ${cleanMobile}`,
   });
 
-  // Provide otpCode in response for immediate UI assistance and demonstration
+  // Dispatch Real SMS via 2Factor if API key is configured
+  if (process.env.TWOFACTOR_API_KEY) {
+    await sendRealSmsOtp(cleanMobile, otpCode);
+  }
+
+  const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.TWOFACTOR_API_KEY);
+
   res.json({
     success: true,
-    message: 'One-Time Password (OTP) generated. Valid for 5 minutes.',
-    otpCode,
+    message: isProduction
+      ? 'One-Time Password (OTP) sent to your registered mobile number. Valid for 5 minutes.'
+      : 'One-Time Password (OTP) generated. Valid for 5 minutes.',
+    ...(isProduction ? {} : { otpCode }),
     expiresInSeconds: 300,
     refreshIntervalSeconds: 180,
   });
@@ -3397,6 +3421,32 @@ apiRouter.patch('/notifications/:id/read', requireAuth, (req: Request, res: Resp
 apiRouter.post('/notifications/read-all', requireAuth, (req: Request, res: Response) => {
   db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').run(req.user!.id);
   res.json({ success: true });
+});
+
+apiRouter.post('/notifications/register-token', requireAuth, (req: Request, res: Response) => {
+  const { pushToken, deviceType } = req.body;
+  if (!pushToken || typeof pushToken !== 'string') {
+    return res.status(400).json({ error: 'Valid pushToken string is required.' });
+  }
+
+  const cleanToken = pushToken.trim();
+  const id = `pt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+  const now = new Date().toISOString();
+
+  try {
+    db.prepare(`
+      INSERT INTO user_push_tokens (id, user_id, push_token, device_type, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(push_token) DO UPDATE SET
+        user_id = excluded.user_id,
+        updated_at = excluded.updated_at
+    `).run(id, req.user!.id, cleanToken, deviceType || 'android', now, now);
+
+    res.json({ success: true, message: 'Push token registered successfully for user.' });
+  } catch (err) {
+    console.error('Failed to register push token:', err);
+    res.status(500).json({ error: 'Failed to register push token.' });
+  }
 });
 
 // =========================================================================

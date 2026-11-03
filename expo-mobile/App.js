@@ -13,21 +13,77 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 import { StatusBar } from 'expo-status-bar';
 
-// Default to local development server on PC's Wi-Fi IP
-const DEFAULT_URL = 'http://192.168.0.38:3000';
+// Configure foreground notifications presentation
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+async function registerForPushNotificationsAsync() {
+  let token = null;
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'Default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#014025',
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.log('Failed to get push token for notification!');
+      return null;
+    }
+    try {
+      const res = await Notifications.getExpoPushTokenAsync();
+      token = res.data;
+      console.log('[Expo Mobile] Push token generated:', token);
+    } catch (e) {
+      console.warn('Error fetching Expo push token:', e);
+    }
+  } else {
+    console.log('Physical device required for Push Notifications');
+  }
+
+  return token;
+}
+
+// Default to Labour portal (workers see OTP by default; admins can tap 'Admin Sign In')
+const DEFAULT_URL = 'http://192.168.0.38:3000/labour';
 
 export default function App() {
   const webViewRef = useRef(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  const [expoPushToken, setExpoPushToken] = useState('');
   const [serverUrl, setServerUrl] = useState(DEFAULT_URL);
   const [inputUrl, setInputUrl] = useState(DEFAULT_URL);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showConfig, setShowConfig] = useState(false);
+
+  // Initialize Push Notifications
+  useEffect(() => {
+    registerForPushNotificationsAsync().then((t) => {
+      if (t) setExpoPushToken(t);
+    });
+  }, []);
 
   // Request native GPS permission upfront so the WebView has access immediately
   useEffect(() => {
@@ -170,11 +226,22 @@ export default function App() {
           allowUniversalAccessFromFileURLs={true}
           allowsInlineMediaPlayback={true}
           mediaPlaybackRequiresUserAction={false}
+          injectedJavaScriptBeforeContentLoaded={`window.EXPO_PUSH_TOKEN = ${JSON.stringify(expoPushToken || '')}; true;`}
           onNavigationStateChange={(navState) => {
             setCanGoBack(navState.canGoBack);
           }}
           onLoadStart={() => setIsLoading(true)}
-          onLoadEnd={() => setIsLoading(false)}
+          onLoadEnd={() => {
+            setIsLoading(false);
+            if (expoPushToken && webViewRef.current) {
+              const script = `
+                window.EXPO_PUSH_TOKEN = ${JSON.stringify(expoPushToken)};
+                window.postMessage(JSON.stringify({ type: 'EXPO_PUSH_TOKEN', token: ${JSON.stringify(expoPushToken)} }), '*');
+                true;
+              `;
+              webViewRef.current.injectJavaScript(script);
+            }
+          }}
           onError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
             setIsLoading(false);

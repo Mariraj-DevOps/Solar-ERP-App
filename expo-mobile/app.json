@@ -34,6 +34,13 @@
     },
     "plugins": [
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#014025"
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Solar ERP requires your GPS location to verify attendance within worksite geofence ranges."

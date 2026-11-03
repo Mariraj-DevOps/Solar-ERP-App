@@ -304,6 +304,11 @@ export const api = {
     list: () => request('/notifications'),
     markRead: (id: string) => request(`/notifications/${id}/read`, { method: 'PATCH' }),
     markAllRead: () => request('/notifications/mark-all-read', { method: 'POST' }),
+    registerPushToken: (pushToken: string, deviceType = 'android') =>
+      request('/notifications/register-token', {
+        method: 'POST',
+        body: JSON.stringify({ pushToken, deviceType }),
+      }),
   },
 
   audit: {

@@ -427,6 +427,17 @@ export function initDatabase() {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS user_push_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      push_token TEXT NOT NULL UNIQUE,
+      device_type TEXT DEFAULT 'android',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_push_user ON user_push_tokens(user_id);
+
     CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance_entries(date);
     CREATE INDEX IF NOT EXISTS idx_attendance_week ON attendance_entries(week_start_date);
     CREATE INDEX IF NOT EXISTS idx_charges_week ON additional_charges(week_start_date);
@@ -629,8 +640,9 @@ function seedInitialData() {
   const now = new Date().toISOString();
 
   if (userCount.count === 0) {
-    const adminPasswordHash = bcrypt.hashSync('Admin@ERP2026!', 10);
-    const staffPasswordHash = bcrypt.hashSync('Staff@ERP2026!', 10);
+    const defaultEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@company.erp';
+    const defaultPass = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin@ERP2026!';
+    const adminPasswordHash = bcrypt.hashSync(defaultPass, 10);
 
     const insertUser = db.prepare(`
       INSERT INTO users (id, email, password_hash, full_name, role, status, created_at, updated_at)
@@ -639,25 +651,29 @@ function seedInitialData() {
 
     insertUser.run(
       'usr-admin-01',
-      'admin@company.erp',
+      defaultEmail,
       adminPasswordHash,
       'ERP Administrator',
-      'admin',
+      'master_admin',
       'active',
       now,
       now
     );
 
-    insertUser.run(
-      'usr-staff-01',
-      'staff@company.erp',
-      staffPasswordHash,
-      'Site Operations Staff',
-      'staff',
-      'active',
-      now,
-      now
-    );
+    // Only seed test staff user when running automated test suites
+    if (process.env.NODE_ENV === 'test') {
+      const staffPasswordHash = bcrypt.hashSync('Staff@ERP2026!', 10);
+      insertUser.run(
+        'usr-staff-01',
+        'staff@company.erp',
+        staffPasswordHash,
+        'Site Operations Staff',
+        'staff',
+        'active',
+        now,
+        now
+      );
+    }
   }
 
   // Seed labour categories
@@ -818,29 +834,31 @@ function seedInitialData() {
     }), now);
   }
 
-  // Ensure secondary admin and assignment exist for testing & demonstration
-  const secAdmin = db.prepare("SELECT id FROM users WHERE email = 'secadmin@company.erp'").get();
-  if (!secAdmin) {
-    const secHash = bcrypt.hashSync('SecAdmin@ERP2026!', 10);
-    db.prepare(`
-      INSERT INTO users (id, email, password_hash, full_name, role, status, designation, assigned_location, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 'secondary_admin', 'active', 'Operations Manager', 'Site Alpha', ?, ?)
-    `).run('usr-secadmin-01', 'secadmin@company.erp', secHash, 'Operations Manager (Sec Admin)', now, now);
+  // Only seed rich sample demo data (secondary admin, sample worksites, sample labourers, fake attendance) if SEED_DEMO_DATA is true
+  if (process.env.SEED_DEMO_DATA === 'true') {
+    // Ensure secondary admin and assignment exist for testing & demonstration
+    const secAdmin = db.prepare("SELECT id FROM users WHERE email = 'secadmin@company.erp'").get();
+    if (!secAdmin) {
+      const secHash = bcrypt.hashSync('SecAdmin@ERP2026!', 10);
+      db.prepare(`
+        INSERT INTO users (id, email, password_hash, full_name, role, status, designation, assigned_location, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 'secondary_admin', 'active', 'Operations Manager', 'Site Alpha', ?, ?)
+      `).run('usr-secadmin-01', 'secadmin@company.erp', secHash, 'Operations Manager (Sec Admin)', now, now);
 
-    // Assign staff usr-staff-01 to secadmin
-    db.prepare(`
-      INSERT OR IGNORE INTO secondary_admin_assignments (
-        id, secondary_admin_id, staff_user_id, can_view_reports, can_approve_attendance, can_edit_attendance, allowed_financial_modules_json, can_edit_finance, can_view_details, created_at, updated_at
-      ) VALUES (?, ?, ?, 1, 1, 1, ?, 1, 1, ?, ?)
-    `).run(
-      'assign-sec-01',
-      'usr-secadmin-01',
-      'usr-staff-01',
-      JSON.stringify(['petty_cash', 'weekly_payments']),
-      now,
-      now
-    );
-  }
+      // Assign staff usr-staff-01 to secadmin
+      db.prepare(`
+        INSERT OR IGNORE INTO secondary_admin_assignments (
+          id, secondary_admin_id, staff_user_id, can_view_reports, can_approve_attendance, can_edit_attendance, allowed_financial_modules_json, can_edit_finance, can_view_details, created_at, updated_at
+        ) VALUES (?, ?, ?, 1, 1, 1, ?, 1, 1, ?, ?)
+      `).run(
+        'assign-sec-01',
+        'usr-secadmin-01',
+        'usr-staff-01',
+        JSON.stringify(['petty_cash', 'weekly_payments']),
+        now,
+        now
+      );
+    }
 
   // Seed sample worksites if empty
   const worksiteCount = db.prepare('SELECT COUNT(*) as count FROM worksites').get() as { count: number };
@@ -988,8 +1006,9 @@ function seedInitialData() {
     });
   }
 
-  // Seed rich sample data for all modules if empty
-  seedComprehensiveDemoData();
+    // Seed rich sample data for all modules if empty
+    seedComprehensiveDemoData();
+  }
 }
 
 export function seedComprehensiveDemoData(force = false) {
@@ -1233,6 +1252,44 @@ export function seedComprehensiveDemoData(force = false) {
   insertNotif.run('notif-demo-04', 'usr-staff-01', 'Weekly Payment Disbursed', 'Cheque voucher CHQ-88210 (₹1,10,000) recorded for week starting 17/10/2026.', 'payment', '/payments', 1, now);
 }
 
+export async function sendExpoPushNotification(params: {
+  userId: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+}) {
+  try {
+    const rows = db.prepare('SELECT push_token FROM user_push_tokens WHERE user_id = ?').all(params.userId) as Array<{ push_token: string }>;
+    if (!rows || rows.length === 0) return;
+
+    const messages = rows
+      .filter(r => r.push_token && (r.push_token.startsWith('ExponentPushToken[') || r.push_token.startsWith('ExpoPushToken[')))
+      .map(r => ({
+        to: r.push_token,
+        sound: 'default',
+        title: params.title,
+        body: params.body,
+        data: params.data || {},
+        priority: 'high',
+        channelId: 'default',
+      }));
+
+    if (messages.length === 0) return;
+
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(messages),
+    });
+  } catch (err) {
+    console.error('[Expo Push Dispatch Error]:', err);
+  }
+}
+
 export function createNotification(params: {
   userId: string;
   title: string;
@@ -1247,6 +1304,14 @@ export function createNotification(params: {
       INSERT INTO notifications (id, user_id, title, message, type, link, is_read, created_at)
       VALUES (?, ?, ?, ?, ?, ?, 0, ?)
     `).run(id, params.userId, params.title, params.message, params.type || 'info', params.link || null, now);
+
+    // Asynchronously dispatch real mobile push notification to user's registered device(s)
+    sendExpoPushNotification({
+      userId: params.userId,
+      title: params.title,
+      body: params.message,
+      data: { link: params.link, type: params.type },
+    }).catch(err => console.error('[Push Notification Error]:', err));
   } catch (err) {
     console.error('Failed to create notification:', err);
   }

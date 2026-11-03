@@ -74,6 +74,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('erp:auth-expired', handleAuthExpired);
   }, []);
 
+  // Automatically register Expo Mobile Push Token if running inside Expo WebView
+  useEffect(() => {
+    if (!user) return;
+
+    const registerToken = (pushToken: string) => {
+      if (pushToken && typeof pushToken === 'string') {
+        api.notifications.registerPushToken(pushToken).catch(() => {});
+      }
+    };
+
+    if ((window as any).EXPO_PUSH_TOKEN) {
+      registerToken((window as any).EXPO_PUSH_TOKEN);
+    }
+
+    const handleNativeMessage = (event: MessageEvent) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data && data.type === 'EXPO_PUSH_TOKEN' && data.token) {
+          (window as any).EXPO_PUSH_TOKEN = data.token;
+          registerToken(data.token);
+        }
+      } catch {
+        // Ignore non-json messages
+      }
+    };
+
+    window.addEventListener('message', handleNativeMessage);
+    document.addEventListener('message', handleNativeMessage as any);
+
+    return () => {
+      window.removeEventListener('message', handleNativeMessage);
+      document.removeEventListener('message', handleNativeMessage as any);
+    };
+  }, [user]);
+
   const login = async (emailOrMobile: string, pass: string) => {
     const res = await api.auth.login({ email: emailOrMobile, password: pass });
     setStoredToken(res.token);

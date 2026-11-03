@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarDays, ShieldCheck, UserCheck, AlertCircle, Lock, Mail, ArrowRight, RefreshCw } from 'lucide-react';
+import { ShieldCheck, AlertCircle, Lock, Mail, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 // Company branding
@@ -8,16 +8,38 @@ const COMPANY_LOGO_URL = '/assets/aistudio/solar_designs_clean_logo_bf464b07.png
 
 export function LoginPage() {
   const { login, requestOtp, loginWithOtp } = useAuth();
-  const [authMode, setAuthMode] = useState<'password' | 'otp'>('password');
-  const [identifier, setIdentifier] = useState('admin@company.erp');
-  const [password, setPassword] = useState('Admin@ERP2026!');
+
+  // Detect URL path to determine initial mode: /labour vs /admin
+  const isLabourUrl = typeof window !== 'undefined' && (
+    window.location.pathname.toLowerCase().includes('/labour') ||
+    window.location.pathname.toLowerCase().includes('/worker') ||
+    new URLSearchParams(window.location.search).get('role') === 'labour'
+  );
+
+  const [authMode, setAuthMode] = useState<'password' | 'otp'>(isLabourUrl ? 'otp' : 'password');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   
   // OTP state
-  const [mobileNumber, setMobileNumber] = useState('9876543210');
+  const [mobileNumber, setMobileNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpNotice, setOtpNotice] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Sync mode with browser URL smoothly
+  const switchMode = (mode: 'password' | 'otp') => {
+    setAuthMode(mode);
+    setError(null);
+    setOtpNotice(null);
+    setOtpSent(false);
+    if (typeof window !== 'undefined') {
+      const targetPath = mode === 'otp' ? '/labour' : '/admin';
+      if (window.location.pathname !== targetPath) {
+        window.history.replaceState({}, '', targetPath);
+      }
+    }
+  };
 
   // 3-minute refresh countdown timer
   useEffect(() => {
@@ -66,12 +88,7 @@ export function LoginPage() {
       setOtpSent(true);
       // Refresh time request window: 3 minutes (180s)
       setResendCooldown(res?.refreshIntervalSeconds || 180);
-      if (res?.otpCode) {
-        setOtpCode(res.otpCode);
-        setOtpNotice(`OTP sent! For demo verification: ${res.otpCode} (Valid 5 mins)`);
-      } else {
-        setOtpNotice('OTP sent to your registered mobile number (Valid 5 mins).');
-      }
+      setOtpNotice('OTP sent to your registered mobile number (Valid 5 mins).');
     } catch (err: any) {
       setError(err.message || 'Failed to send OTP.');
     } finally {
@@ -98,32 +115,6 @@ export function LoginPage() {
     }
   };
 
-  const fillCredentials = (role: 'admin' | 'secondary_admin' | 'staff' | 'labourer') => {
-    setError(null);
-    setOtpNotice(null);
-    if (role === 'admin') {
-      setAuthMode('password');
-      setIdentifier('admin@company.erp');
-      setPassword('Admin@ERP2026!');
-    } else if (role === 'secondary_admin') {
-      setAuthMode('password');
-      setIdentifier('secadmin@company.erp');
-      setPassword('SecAdmin@ERP2026!');
-    } else if (role === 'staff') {
-      setAuthMode('password');
-      setIdentifier('staff@company.erp');
-      setPassword('Staff@ERP2026!');
-    } else {
-      setAuthMode('otp');
-      setMobileNumber('9876543210');
-      setOtpCode('');
-      setOtpSent(false);
-      setResendCooldown(0);
-      setIdentifier('9876543210');
-      setPassword('Password@123');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#EAF1ED] via-[#F2F6F3] to-[#E5EFE8] flex flex-col justify-center items-center px-4 py-8 relative overflow-hidden">
       {/* Decorative ambient sage glows */}
@@ -136,7 +127,7 @@ export function LoginPage() {
       <div className="w-full max-w-[440px] relative z-10 animate-fade-in-up">
         <div className="bg-white rounded-3xl shadow-xl shadow-slate-900/8 border border-[#D8E4DD] overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-950/10">
           
-          {/* Card Header with Mint Sage Background & Fluid Organic Waves */}
+          {/* Card Header with Mint Sage Background */}
           <div className="relative pt-7 pb-6 px-6 text-center bg-gradient-to-b from-[#E7F0EB] via-[#EEF5F1] to-[#FAFCFA] border-b border-[#E1ECE5] overflow-hidden">
             <div className="relative z-10 flex flex-col items-center">
               {/* Circular Wave Logo */}
@@ -156,7 +147,20 @@ export function LoginPage() {
                 Labour Attendance &amp; GPS Geofence ERP
               </p>
 
-              
+              {/* Portal Mode Badge */}
+              <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-white/80 border border-emerald-900/10 text-emerald-900 shadow-2xs">
+                {authMode === 'password' ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#0E6037]" />
+                    <span>👔 Admin &amp; Staff Portal</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span>👷 Site Worker Portal</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -164,18 +168,18 @@ export function LoginPage() {
           <div className="px-6 pt-5 pb-1 bg-white border-b border-slate-100 flex gap-2">
             <button
               type="button"
-              onClick={() => { setAuthMode('password'); setError(null); }}
+              onClick={() => switchMode('password')}
               className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
                 authMode === 'password'
                   ? 'bg-[#0E6037] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              Password Login
+              Password Login (Admin)
             </button>
             <button
               type="button"
-              onClick={() => { setAuthMode('otp'); setError(null); }}
+              onClick={() => switchMode('otp')}
               className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
                 authMode === 'otp'
                   ? 'bg-[#0E6037] text-white shadow-xs'
@@ -216,7 +220,7 @@ export function LoginPage() {
                     required
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="admin@company.erp or 9876543210"
+                    placeholder="Enter registered email or mobile"
                     className="w-full pl-10 pr-3.5 py-2.5 text-sm border border-[#D5E0DA] rounded-xl bg-[#F8FAF9] text-slate-800 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-[#0E6037]/15 focus:border-[#0E6037] focus:bg-white hover:border-slate-300"
                   />
                 </div>
@@ -267,7 +271,7 @@ export function LoginPage() {
                         required
                         value={mobileNumber}
                         onChange={(e) => setMobileNumber(e.target.value)}
-                        placeholder="9876543210"
+                        placeholder="Enter 10-digit mobile number"
                         maxLength={10}
                         className="w-full pl-12 pr-3.5 py-2.5 text-sm border border-[#D5E0DA] rounded-xl bg-[#F8FAF9] text-slate-800 placeholder-slate-400 font-mono transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-[#0E6037]/15 focus:border-[#0E6037] focus:bg-white hover:border-slate-300"
                       />
@@ -342,62 +346,33 @@ export function LoginPage() {
             </div>
           )}
 
-          {/* Quick Role Presets for Testing & Demo */}
-          <div className="bg-[#F8FAF9] px-6 py-4 border-t border-[#E8EFEA]">
-            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 text-center">
-              Quick Role-Based Access Demo
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <button
-                type="button"
-                onClick={() => fillCredentials('admin')}
-                className="p-2 border border-[#D5E0DA] bg-white hover:bg-[#EBF3EE] hover:border-[#0E6037]/40 rounded-xl text-left transition-all duration-200 group cursor-pointer"
-              >
-                <div className="flex items-center space-x-1 text-xs font-bold text-slate-800 group-hover:text-[#0E6037]">
-                  <ShieldCheck className="w-3 h-3 text-[#0E6037]" />
-                  <span>Admin</span>
-                </div>
-                <div className="text-[9px] text-slate-400 truncate mt-0.5">Master</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials('secondary_admin')}
-                className="p-2 border border-[#D5E0DA] bg-white hover:bg-[#EBF3EE] hover:border-[#0E6037]/40 rounded-xl text-left transition-all duration-200 group cursor-pointer"
-              >
-                <div className="flex items-center space-x-1 text-xs font-bold text-slate-800 group-hover:text-[#0E6037]">
-                  <ShieldCheck className="w-3 h-3 text-[#3B5E4F]" />
-                  <span>Sec Admin</span>
-                </div>
-                <div className="text-[9px] text-slate-400 truncate mt-0.5">Regional</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials('staff')}
-                className="p-2 border border-[#D5E0DA] bg-white hover:bg-[#EBF3EE] hover:border-[#0E6037]/40 rounded-xl text-left transition-all duration-200 group cursor-pointer"
-              >
-                <div className="flex items-center space-x-1 text-xs font-bold text-slate-800 group-hover:text-[#0E6037]">
-                  <UserCheck className="w-3 h-3 text-[#3B5E4F]" />
-                  <span>Staff</span>
-                </div>
-                <div className="text-[9px] text-slate-400 truncate mt-0.5">Site Ops</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials('labourer')}
-                className="p-2 border border-[#D5E0DA] bg-white hover:bg-[#EBF3EE] hover:border-[#0E6037]/40 rounded-xl text-left transition-all duration-200 group cursor-pointer"
-              >
-                <div className="flex items-center space-x-1 text-xs font-bold text-slate-800 group-hover:text-[#0E6037]">
-                  <Lock className="w-3 h-3 text-[#0E6037]" />
-                  <span>Labourer</span>
-                </div>
-                <div className="text-[9px] text-slate-400 truncate mt-0.5">Mobile OTP</div>
-              </button>
-            </div>
+          {/* Quick Portal Switcher Banner */}
+          <div className="bg-[#F8FAF9] px-6 py-3.5 border-t border-[#E8EFEA] text-center">
+            {authMode === 'otp' ? (
+              <div>
+                <p className="text-[11px] text-slate-500 mb-1">Company Administrator or Operations Staff?</p>
+                <button
+                  type="button"
+                  onClick={() => switchMode('password')}
+                  className="w-full py-2 px-3 text-xs font-semibold text-[#0E6037] hover:text-[#0B4D2C] bg-white hover:bg-[#EBF3EE] border border-[#D5E0DA] hover:border-[#0E6037]/30 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>👔 Admin &amp; Staff Sign In (Password)</span>
+                </button>
+              </div>
+            ) : (
+              <div>
+                <p className="text-[11px] text-slate-500 mb-1">Registered Site Worker / Field Labourer?</p>
+                <button
+                  type="button"
+                  onClick={() => switchMode('otp')}
+                  className="w-full py-2 px-3 text-xs font-semibold text-[#0E6037] hover:text-[#0B4D2C] bg-white hover:bg-[#EBF3EE] border border-[#D5E0DA] hover:border-[#0E6037]/30 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>👷 Site Worker Sign In (Mobile OTP)</span>
+                </button>
+              </div>
+            )}
           </div>
+
         </div>
 
         {/* Footer */}
