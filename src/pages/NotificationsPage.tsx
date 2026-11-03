@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Bell,
   CheckCircle2,
@@ -20,7 +20,7 @@ export function NotificationsPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const notifiedIdsRef = React.useRef<Set<string>>(new Set());
+  const notifiedIdsRef = useRef<Set<string>>(new Set());
 
   const loadNotifications = async () => {
     setIsLoading(true);
@@ -36,11 +36,25 @@ export function NotificationsPage() {
           const first = unreadList[0];
           if (first?.id && !notifiedIdsRef.current.has(first.id)) {
             notifiedIdsRef.current.add(first.id);
-            (window as any).ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'LOCAL_NOTIFICATION',
-              title: first.title || 'Solar ERP Update',
-              body: first.message,
-            }));
+            if ((window as any).ReactNativeWebView) {
+              (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'LOCAL_NOTIFICATION',
+                title: first.title || 'Solar ERP Update',
+                body: first.message,
+              }));
+            }
+            if (typeof Notification !== 'undefined') {
+              if (Notification.permission === 'granted') {
+                try {
+                  new Notification(first.title || 'Solar ERP Update', {
+                    body: first.message,
+                    icon: '/assets/aistudio/solar_designs_clean_logo_bf464b07.png',
+                  });
+                } catch (e) {}
+              } else if (Notification.permission === 'default') {
+                try { Notification.requestPermission().catch(() => {}); } catch (e) {}
+              }
+            }
           }
         }
       }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   MapPin,
   Clock,
@@ -98,6 +98,19 @@ export function LabourerDashboardPage() {
           }
           if (typeof navigator !== 'undefined' && navigator.vibrate) {
             try { navigator.vibrate([400, 200, 400, 200, 600]); } catch (e) {}
+          }
+
+          if (typeof Notification !== 'undefined') {
+            if (Notification.permission === 'granted') {
+              try {
+                new Notification('🚨 Spot Verification Requested', {
+                  body: `Dispatched by ${latestVerif.requested_by_name || 'Supervisor'}. Please confirm your GPS presence within 30 minutes.`,
+                  icon: COMPANY_LOGO_URL,
+                });
+              } catch (e) {}
+            } else if (Notification.permission === 'default') {
+              try { Notification.requestPermission().catch(() => {}); } catch (e) {}
+            }
           }
         }
       }

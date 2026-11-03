@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   CalendarCheck2,
   Clock,
@@ -139,6 +139,19 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
           }
           if (typeof navigator !== 'undefined' && navigator.vibrate) {
             try { navigator.vibrate([400, 200, 400, 200, 600]); } catch (e) {}
+          }
+
+          if (typeof Notification !== 'undefined') {
+            if (Notification.permission === 'granted') {
+              try {
+                new Notification('🚨 Attendance Spot Verification Requested', {
+                  body: `Verification dispatched by ${latestSpot.requested_by_name || 'Supervisor'}. Please confirm your physical location.`,
+                  icon: '/assets/aistudio/solar_designs_clean_logo_bf464b07.png',
+                });
+              } catch (e) {}
+            } else if (Notification.permission === 'default') {
+              try { Notification.requestPermission().catch(() => {}); } catch (e) {}
+            }
           }
         }
       }

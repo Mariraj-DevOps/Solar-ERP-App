@@ -32,15 +32,29 @@ async function registerForPushNotificationsAsync() {
   let token = null;
 
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'Default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#014025',
-    });
+    try {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#014025',
+        enableLights: true,
+        enableVibrate: true,
+      });
+    } catch (e) {
+      console.warn('Could not set notification channel:', e);
+    }
+
+    // Explicitly request POST_NOTIFICATIONS runtime permission on Android 13+
+    try {
+      const { PermissionsAndroid } = require('react-native');
+      if (PermissionsAndroid?.PERMISSIONS?.POST_NOTIFICATIONS) {
+        await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      }
+    } catch (e) {}
   }
 
-  if (Device.isDevice) {
+  try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
@@ -48,19 +62,16 @@ async function registerForPushNotificationsAsync() {
       finalStatus = status;
     }
     if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for notification!');
+      console.log('Failed to get notification permission from user!');
       return null;
     }
-    try {
-      const projectId = '579b051e-ef76-4979-9c96-f381fc840a51';
-      const res = await Notifications.getExpoPushTokenAsync({ projectId });
-      token = res.data;
-      console.log('[Expo Mobile] Push token generated:', token);
-    } catch (e) {
-      console.warn('Error fetching Expo push token:', e);
-    }
-  } else {
-    console.log('Physical device required for Push Notifications');
+
+    const projectId = '579b051e-ef76-4979-9c96-f381fc840a51';
+    const res = await Notifications.getExpoPushTokenAsync({ projectId });
+    token = res.data;
+    console.log('[Expo Mobile] Push token generated:', token);
+  } catch (e) {
+    console.warn('Error during push notification setup:', e);
   }
 
   return token;

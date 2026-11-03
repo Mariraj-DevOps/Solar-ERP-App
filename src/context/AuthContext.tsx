@@ -108,6 +108,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {}
     }
 
+    // Request browser notification permission if running in Chrome or web browser
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      try {
+        Notification.requestPermission().catch(() => {});
+      } catch (e) {}
+    }
+
     const handleCustomEvent = (event: any) => {
       const token = event.detail?.token;
       if (token) registerToken(token);
