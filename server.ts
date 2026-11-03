@@ -6,6 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { initDatabase } from './src/server/db';
 import { apiRouter } from './src/server/routes';
+import { restoreFromPostgres, pushToPostgres } from './src/server/pgSync';
 
 dotenv.config();
 
@@ -21,6 +22,16 @@ async function startServer() {
 
   // Initialize SQLite persistent database schema and initial administrator
   initDatabase();
+
+  // Restore latest cloud database state if PostgreSQL is configured (preserves data across Render spin-down / sleep)
+  restoreFromPostgres().catch((err) => {
+    console.warn('[Postgres Sync] Initial restore failed, running on local DB:', err);
+  });
+
+  // Scheduled background sync to cloud PostgreSQL every 60 seconds
+  setInterval(() => {
+    pushToPostgres().catch(() => {});
+  }, 60000);
 
   // CORS middleware to accept requests from Vercel frontend and mobile clients
   app.use((req, res, next) => {

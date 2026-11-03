@@ -3,9 +3,10 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 
-// Ensure data directory exists (support Vercel serverless /tmp writable directory)
+// Ensure data directory exists (support Vercel serverless /tmp and Render persistent disk mounts)
 const isVercel = Boolean(process.env.VERCEL);
-const dataDir = isVercel ? '/tmp' : path.resolve(process.cwd(), 'data');
+const persistentDir = process.env.PERSISTENT_DATA_DIR || (fs.existsSync('/var/data') ? '/var/data' : null);
+const dataDir = isVercel ? '/tmp' : (persistentDir || path.resolve(process.cwd(), 'data'));
 if (!fs.existsSync(dataDir)) {
   try {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -16,14 +17,14 @@ if (!fs.existsSync(dataDir)) {
 
 const dbPath = isVercel ? path.join('/tmp', 'erp.db') : path.join(dataDir, 'erp.db');
 
-// If running in Vercel and /tmp/erp.db does not exist yet, copy the bundled seed database
-if (isVercel && !fs.existsSync(dbPath)) {
+// If running in Vercel or persistent mount and erp.db does not exist yet, copy the bundled seed database
+if (!fs.existsSync(dbPath)) {
   const bundledDb = path.resolve(process.cwd(), 'data', 'erp.db');
-  if (fs.existsSync(bundledDb)) {
+  if (fs.existsSync(bundledDb) && bundledDb !== dbPath) {
     try {
       fs.copyFileSync(bundledDb, dbPath);
     } catch (e) {
-      console.warn('[Vercel] Could not copy bundled DB to /tmp:', e);
+      console.warn('Could not copy bundled DB to dataDir:', e);
     }
   }
 }
@@ -1371,6 +1372,11 @@ export function logAudit(params: {
       params.reason || null,
       new Date().toISOString()
     );
+
+    // Sync database state to cloud PostgreSQL if configured
+    try {
+      import('./pgSync').then((m) => m.triggerPgSync()).catch(() => {});
+    } catch {}
   } catch (err) {
     console.error('Failed to write audit log:', err);
   }

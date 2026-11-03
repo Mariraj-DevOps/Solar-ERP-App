@@ -102,6 +102,14 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
       setStaffTodayRecord(myTodayGps?.todayRecord || null);
       setActiveVerifications(activeSpotChecks || []);
 
+      if (Array.isArray(activeSpotChecks) && activeSpotChecks.length > 0 && (window as any).ReactNativeWebView) {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'LOCAL_NOTIFICATION',
+          title: '🚨 Attendance Spot Verification Requested',
+          body: `Verification dispatched by ${activeSpotChecks[0].requested_by_name}. Please confirm your physical location.`,
+        }));
+      }
+
       if (Array.isArray(worksitesList) && worksitesList.length > 0) {
         const found = user?.assignedWorksiteId ? worksitesList.find((w: any) => w.id === user.assignedWorksiteId) : worksitesList[0];
         setAssignedWorksite(found || worksitesList[0]);

@@ -28,6 +28,18 @@ export function NotificationsPage() {
       const res = await api.notifications.list();
       setNotifications(res.notifications);
       setUnreadCount(res.unreadCount);
+
+      if (res.unreadCount > 0 && (window as any).ReactNativeWebView) {
+        const unreadList = (res.notifications || []).filter((n: any) => !n.is_read);
+        if (unreadList.length > 0) {
+          const first = unreadList[0];
+          (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'LOCAL_NOTIFICATION',
+            title: first.title || 'Solar ERP Update',
+            body: first.message,
+          }));
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load notifications.');
     } finally {

@@ -729,94 +729,95 @@ export function AttendanceModal({
                 No labour categories assigned. Click &quot;Add Category&quot; to add masons, helpers, etc.
               </div>
             ) : (
-              <div className="border border-[#696969]/20 rounded-lg overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-[#696969]/10 text-[#014025] border-b border-[#696969]/20 font-semibold">
-                    <tr>
-                      <th className="py-2 px-3 text-left">Category</th>
-                      <th className="py-2 px-3 text-center w-28">Worker Count</th>
-                      <th className="py-2 px-3 text-right w-24">Rate (₹)</th>
-                      <th className="py-2 px-3 text-right w-28">Amount (₹)</th>
-                      <th className="py-2 px-2 text-center w-8"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#696969]/10">
-                    {lines.map((line, idx) => {
-                      const catGpsCount = teamGpsAttendees.filter(
-                        (a) => selectedGpsAttendeeIds.includes(a.id) && (a.labour_category_id === line.categoryId || (!a.labour_category_id && idx === 0))
-                      ).length;
+              <div className="space-y-2">
+                <div className="border border-[#696969]/20 rounded-xl overflow-x-auto shadow-2xs">
+                  <table className="w-full min-w-[480px] text-xs">
+                    <thead className="bg-[#696969]/10 text-[#014025] border-b border-[#696969]/20 font-semibold">
+                      <tr>
+                        <th className="py-2.5 px-3 text-left">Category</th>
+                        <th className="py-2.5 px-3 text-center w-24 sm:w-28">Worker Count</th>
+                        <th className="py-2.5 px-3 text-right w-20 sm:w-24">Rate (₹)</th>
+                        <th className="py-2.5 px-3 text-right w-24 sm:w-28">Amount (₹)</th>
+                        <th className="py-2.5 px-2 text-center w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#696969]/10">
+                      {lines.map((line, idx) => {
+                        const catGpsCount = teamGpsAttendees.filter(
+                          (a) => selectedGpsAttendeeIds.includes(a.id) && (a.labour_category_id === line.categoryId || (!a.labour_category_id && idx === 0))
+                        ).length;
 
-                      return (
-                        <React.Fragment key={idx}>
-                          <tr className="hover:bg-slate-50/50">
-                            <td className="py-2 px-3">
-                              <CustomSelect
-                                disabled={isSubmitting}
-                                value={line.categoryId}
-                                onChange={(val) => {
-                                  const cId = String(val);
-                                  const selectedCat = categories.find((c) => c.id === cId);
-                                  updateLine(idx, 'categoryId', cId);
-                                  if (selectedCat) {
-                                    updateLine(idx, 'categoryName', selectedCat.name);
-                                    updateLine(idx, 'rate', selectedCat.default_rate);
-                                  }
-                                }}
-                                options={categories.map((c) => ({
-                                  value: c.id,
-                                  label: c.name,
-                                  sublabel: `${formatINR(c.default_rate)}/day`,
-                                }))}
-                                placeholder="Select category..."
-                                size="sm"
-                              />
-                              {catGpsCount > 0 && (
-                                <div className="mt-1 flex items-center space-x-1 text-[10px] text-emerald-700 font-semibold">
-                                  <MapPin className="w-3 h-3 text-emerald-600" />
-                                  <span>{catGpsCount} self-marked via GPS</span>
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-2 px-3 text-center">
+                        return (
+                          <React.Fragment key={idx}>
+                            <tr className="hover:bg-slate-50/50">
+                              <td className="py-2 px-3">
+                                <CustomSelect
+                                  disabled={isSubmitting}
+                                  value={line.categoryId}
+                                  onChange={(val) => {
+                                    const cId = String(val);
+                                    const selectedCat = categories.find((c) => c.id === cId);
+                                    updateLine(idx, 'categoryId', cId);
+                                    if (selectedCat) {
+                                      updateLine(idx, 'categoryName', selectedCat.name);
+                                      updateLine(idx, 'rate', selectedCat.default_rate);
+                                    }
+                                  }}
+                                  options={categories.map((c) => ({
+                                    value: c.id,
+                                    label: c.name,
+                                    sublabel: `${formatINR(c.default_rate)}/day`,
+                                  }))}
+                                  placeholder="Select category..."
+                                  size="sm"
+                                />
+                                {catGpsCount > 0 && (
+                                  <div className="mt-1 flex items-center space-x-1 text-[10px] text-emerald-700 font-semibold">
+                                    <MapPin className="w-3 h-3 text-emerald-600" />
+                                    <span>{catGpsCount} self-marked via GPS</span>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-2 px-3 text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  disabled={isSubmitting}
+                                  value={line.count === 0 ? '' : line.count}
+                                  placeholder="0"
+                                  onChange={(e) => updateLine(idx, 'count', e.target.value)}
+                                  className="w-16 sm:w-20 text-center border border-[#696969]/30 rounded px-1.5 py-1 text-xs font-mono font-bold text-[#014025]"
+                                />
+                                {catGpsCount > 0 && (
+                                  <div className="text-[10px] text-slate-500 mt-0.5 font-mono">
+                                    {catGpsCount} GPS + {Math.max(0, (line.count || 0) - catGpsCount)} staff
+                                  </div>
+                                )}
+                              </td>
+                            <td className="py-2 px-3 text-right">
                               <input
                                 type="number"
                                 min="0"
                                 disabled={isSubmitting}
-                                value={line.count === 0 ? '' : line.count}
-                                placeholder="0"
-                                onChange={(e) => updateLine(idx, 'count', e.target.value)}
-                                className="w-20 text-center border border-[#696969]/30 rounded px-1.5 py-1 text-xs font-mono font-bold text-[#014025]"
+                                value={line.rate}
+                                onChange={(e) => updateLine(idx, 'rate', e.target.value)}
+                                className="w-16 sm:w-20 text-right border border-[#696969]/30 rounded px-1.5 py-1 text-xs font-mono text-[#014025]"
                               />
-                              {catGpsCount > 0 && (
-                                <div className="text-[10px] text-slate-500 mt-0.5 font-mono">
-                                  {catGpsCount} GPS + {Math.max(0, (line.count || 0) - catGpsCount)} staff
-                                </div>
-                              )}
                             </td>
-                          <td className="py-2 px-3 text-right">
-                            <input
-                              type="number"
-                              min="0"
-                              disabled={isSubmitting}
-                              value={line.rate}
-                              onChange={(e) => updateLine(idx, 'rate', e.target.value)}
-                              className="w-20 text-right border border-[#696969]/30 rounded px-1.5 py-1 text-xs font-mono text-[#014025]"
-                            />
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono font-semibold text-[#014025]">
-                            {formatINR(line.finalAmount)}
-                          </td>
-                          <td className="py-2 px-2 text-center">
-                            <button
-                              type="button"
-                              disabled={isSubmitting}
-                              onClick={() => removeLine(idx)}
-                              className="text-[#696969] hover:text-red-500 p-1"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-[#014025]">
+                              {formatINR(line.finalAmount)}
+                            </td>
+                            <td className="py-2 px-2 text-center">
+                              <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={() => removeLine(idx)}
+                                className="text-[#696969] hover:text-red-500 p-1"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
 
                         {/* Rate Override Option */}
                         {line.isOverridden && (
@@ -852,7 +853,24 @@ export function AttendanceModal({
                   </tbody>
                 </table>
               </div>
-            )}
+
+              {/* Total Labour Amount summary on mobile and desktop */}
+              <div className="flex items-center justify-between p-2.5 sm:p-3 bg-emerald-50 border border-emerald-200/90 rounded-xl text-xs font-semibold text-emerald-950">
+                <span className="flex items-center space-x-1.5">
+                  <span className="text-emerald-700">Total Labour Headcount:</span>
+                  <strong className="text-emerald-900 font-bold font-mono">
+                    {lines.reduce((sum, l) => sum + (Number(l.count) || 0), 0)} workers
+                  </strong>
+                </span>
+                <span className="flex items-center space-x-1.5">
+                  <span className="text-emerald-700">Labour Total:</span>
+                  <strong className="text-sm font-bold font-mono text-[#0E6037]">
+                    {formatINR(lines.reduce((sum, l) => sum + (Number(l.finalAmount) || 0), 0))}
+                  </strong>
+                </span>
+              </div>
+            </div>
+          )}
           </div>
 
           {/* If editing approved attendance: mandatory Change Reason box */}

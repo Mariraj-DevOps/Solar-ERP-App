@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -114,8 +115,10 @@ function ERPContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ERPContent />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <ERPContent />
+      </AuthProvider>
+    </ToastProvider>
   );
 }

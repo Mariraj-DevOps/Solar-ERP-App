@@ -14,6 +14,8 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
 
 // Configure foreground notifications presentation
@@ -49,7 +51,8 @@ async function registerForPushNotificationsAsync() {
       return null;
     }
     try {
-      const res = await Notifications.getExpoPushTokenAsync();
+      const projectId = '579b051e-ef76-4979-9c96-f381fc840a51';
+      const res = await Notifications.getExpoPushTokenAsync({ projectId });
       token = res.data;
       console.log('[Expo Mobile] Push token generated:', token);
     } catch (e) {
@@ -259,6 +262,61 @@ export default function App() {
           }
         };
       }
+
+      // Intercept file download links (Blob / PDF / Excel / Attachments)
+      document.addEventListener('click', function(e) {
+        var target = e.target;
+        while (target && target.tagName !== 'A') {
+          target = target.parentElement;
+        }
+        if (!target) return;
+        var href = target.getAttribute('href');
+        var download = target.getAttribute('download');
+
+        if (download !== null || (href && (href.indexOf('/download') !== -1 || href.endsWith('.pdf') || href.endsWith('.xlsx')))) {
+          if (href && href.indexOf('blob:') === 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            fetch(href)
+              .then(function(res) { return res.blob(); })
+              .then(function(blob) {
+                var reader = new FileReader();
+                reader.onloadend = function() {
+                  var base64data = String(reader.result).split(',')[1];
+                  if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                      type: 'DOWNLOAD_BASE64',
+                      base64: base64data,
+                      filename: download || 'download.pdf',
+                      mimeType: blob.type
+                    }));
+                  }
+                };
+                reader.readAsDataURL(blob);
+              })
+              .catch(function(err) {
+                console.warn('Blob read failed', err);
+              });
+          } else if (href && href.indexOf('#') !== 0 && href.indexOf('javascript:') !== 0) {
+            var absoluteUrl = target.href;
+            var token = '';
+            try {
+              token = localStorage.getItem('solar_erp_token') || sessionStorage.getItem('solar_erp_token') || '';
+            } catch (e) {}
+
+            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+              e.preventDefault();
+              e.stopPropagation();
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'DOWNLOAD_URL',
+                url: absoluteUrl,
+                filename: download || absoluteUrl.split('/').pop() || 'download',
+                token: token
+              }));
+            }
+          }
+        }
+      }, true);
     })();
     true;
   `;
@@ -299,6 +357,42 @@ export default function App() {
               const data = JSON.parse(event.nativeEvent.data);
               if (data.type === 'REQUEST_LOCATION') {
                 await syncNativeLocation();
+              } else if (data.type === 'DOWNLOAD_BASE64') {
+                const filename = data.filename || `report_${Date.now()}.xlsx`;
+                const fileUri = `${FileSystem.documentDirectory}${filename}`;
+                await FileSystem.writeAsStringAsync(fileUri, data.base64, {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+                if (await Sharing.isAvailableAsync()) {
+                  await Sharing.shareAsync(fileUri, {
+                    dialogTitle: `Download ${filename}`,
+                    mimeType: data.mimeType || 'application/octet-stream',
+                  });
+                } else {
+                  Alert.alert('Download Complete', `File saved: ${filename}`);
+                }
+              } else if (data.type === 'DOWNLOAD_URL') {
+                const filename = data.filename || `download_${Date.now()}`;
+                const fileUri = `${FileSystem.documentDirectory}${filename}`;
+                const downloadResult = await FileSystem.downloadAsync(data.url, fileUri, {
+                  headers: data.token ? { Authorization: `Bearer ${data.token}` } : {},
+                });
+                if (await Sharing.isAvailableAsync()) {
+                  await Sharing.shareAsync(downloadResult.uri, {
+                    dialogTitle: `Download ${filename}`,
+                  });
+                } else {
+                  Alert.alert('Download Complete', `File downloaded successfully.`);
+                }
+              } else if (data.type === 'LOCAL_NOTIFICATION') {
+                await Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: data.title || 'Solar ERP Notification',
+                    body: data.body || data.message || '',
+                    sound: true,
+                  },
+                  trigger: null,
+                });
               }
             } catch (e) {
               // Ignore non-json messages

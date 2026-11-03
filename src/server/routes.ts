@@ -3423,6 +3423,11 @@ apiRouter.post('/notifications/read-all', requireAuth, (req: Request, res: Respo
   res.json({ success: true });
 });
 
+apiRouter.post('/notifications/mark-all-read', requireAuth, (req: Request, res: Response) => {
+  db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').run(req.user!.id);
+  res.json({ success: true });
+});
+
 apiRouter.post('/notifications/register-token', requireAuth, (req: Request, res: Response) => {
   const { pushToken, deviceType } = req.body;
   if (!pushToken || typeof pushToken !== 'string') {
