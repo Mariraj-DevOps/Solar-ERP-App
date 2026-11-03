@@ -31,10 +31,11 @@ export function LabourerDashboardPage() {
   const [teams, setTeams] = useState<any[]>([]);
   const [assignedWorksite, setAssignedWorksite] = useState<any | null>(null);
   const [assignedTeam, setAssignedTeam] = useState<any | null>(null);
-  const [livePosition, setLivePosition] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [livePosition, setLivePosition] = useState<{ latitude: number; longitude: number; accuracy?: number } | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isLocating, setIsLocating] = useState(false);
+  const [isDetectingGps, setIsDetectingGps] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
@@ -119,31 +120,112 @@ export function LabourerDashboardPage() {
     return () => clearInterval(timer);
   }, [activeVerifications]);
 
-  // Request high-accuracy GPS fix from device
+// Calculate Haversine distance in meters between two lat/lng points
+function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+  // Listen for native location updates broadcast from Expo WebView bridge
+  useEffect(() => {
+    const handleNativeUpdate = (e: any) => {
+      const detail = e.detail;
+      if (detail && typeof detail.latitude === 'number' && typeof detail.longitude === 'number') {
+        setLivePosition({
+          latitude: detail.latitude,
+          longitude: detail.longitude,
+          accuracy: detail.accuracy,
+        });
+      }
+    };
+    window.addEventListener('nativeLocationUpdate', handleNativeUpdate);
+    return () => window.removeEventListener('nativeLocationUpdate', handleNativeUpdate);
+  }, []);
+
+  // Request high-accuracy GPS fix with automatic network fallback
   const getDeviceLocation = (): Promise<GeolocationPosition> => {
     return new Promise((resolve, reject) => {
+      // Check if native Expo shell pre-populated location
+      const nativeGps = (window as any).__NATIVE_GPS__;
+      if (nativeGps && typeof nativeGps.latitude === 'number' && typeof nativeGps.longitude === 'number') {
+        return resolve({
+          coords: {
+            latitude: nativeGps.latitude,
+            longitude: nativeGps.longitude,
+            accuracy: nativeGps.accuracy || 10,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: nativeGps.timestamp || Date.now(),
+        } as GeolocationPosition);
+      }
+
       if (!navigator.geolocation) {
         reject(new Error('Geolocation is not supported by your browser or device.'));
         return;
       }
 
+      // First attempt: High accuracy GPS
       navigator.geolocation.getCurrentPosition(
         (pos) => resolve(pos),
         (err) => {
-          let msg = 'Failed to obtain GPS location.';
-          if (err.code === err.PERMISSION_DENIED) {
-            msg = 'Location permission was denied. Please allow location access in your browser settings to record attendance.';
-          } else if (err.code === err.POSITION_UNAVAILABLE) {
-            msg = 'Location unavailable. Please ensure your device GPS is turned on.';
-          } else if (err.code === err.TIMEOUT) {
-            msg = 'GPS location timed out. Please try again in an open sky area.';
-          }
-          reject(new Error(msg));
+          // Second attempt: Fallback to balanced/network location
+          navigator.geolocation.getCurrentPosition(
+            (pos) => resolve(pos),
+            (err2) => {
+              let msg = 'Failed to obtain GPS location.';
+              if (err2.code === err2.PERMISSION_DENIED) {
+                msg = 'Location permission was denied. Please allow location access in your device settings.';
+              } else if (err2.code === err2.POSITION_UNAVAILABLE) {
+                msg = 'Location unavailable. Please ensure your device GPS is turned on.';
+              } else if (err2.code === err2.TIMEOUT) {
+                msg = 'GPS location timed out. Please step into an open area and tap Refresh GPS.';
+              }
+              reject(new Error(msg));
+            },
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+          );
         },
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 }
       );
     });
   };
+
+  // Dedicated function to detect current GPS location on demand or load
+  const requestFreshLocation = async () => {
+    setIsDetectingGps(true);
+    setActionError(null);
+    try {
+      if ((window as any).ReactNativeWebView?.postMessage) {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'REQUEST_LOCATION' }));
+      }
+      const position = await getDeviceLocation();
+      setLivePosition({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+      });
+    } catch (err: any) {
+      console.warn('Initial GPS detection failed:', err);
+    } finally {
+      setIsDetectingGps(false);
+    }
+  };
+
+  // Automatically detect location when the dashboard loads
+  useEffect(() => {
+    requestFreshLocation();
+  }, []);
 
   // Perform GPS Check-In
   const handleCheckIn = async () => {
@@ -298,6 +380,75 @@ export function LabourerDashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Live GPS Detection & Distance Status */}
+        {(() => {
+          const siteLat = assignedWorksite?.latitude || assignedTeam?.site_latitude || 12.9715987;
+          const siteLng = assignedWorksite?.longitude || assignedTeam?.site_longitude || 77.5945627;
+          const allowedRadius = assignedWorksite?.allowed_radius_meters || assignedWorksite?.radius_meters || assignedTeam?.geofence_radius_meters || 150;
+          const distanceM = livePosition
+            ? computeDistanceMeters(livePosition.latitude, livePosition.longitude, siteLat, siteLng)
+            : null;
+          const isInside = distanceM !== null ? distanceM <= allowedRadius : false;
+
+          return (
+            <div className={`rounded-2xl p-3.5 border shadow-xs transition-all ${
+              livePosition
+                ? isInside
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                  : 'bg-amber-50 border-amber-200 text-amber-950'
+                : 'bg-slate-50 border-slate-200 text-slate-700'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full shrink-0 ${
+                    livePosition
+                      ? isInside
+                        ? 'bg-emerald-500 animate-pulse'
+                        : 'bg-amber-500 animate-pulse'
+                      : isDetectingGps
+                        ? 'bg-amber-400 animate-ping'
+                        : 'bg-slate-400'
+                  }`} />
+                  <span className="text-xs font-bold">
+                    {isDetectingGps
+                      ? 'Acquiring GPS fix...'
+                      : livePosition
+                        ? isInside
+                          ? 'Within Worksite Geofence Range ✅'
+                          : 'Outside Worksite Geofence Range ⚠️'
+                        : 'GPS Location Not Detected Yet'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={requestFreshLocation}
+                  disabled={isDetectingGps}
+                  className="text-[11px] font-semibold text-[#0E6037] hover:underline flex items-center space-x-1 cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isDetectingGps ? 'animate-spin' : ''}`} />
+                  <span>{isDetectingGps ? 'Locating...' : 'Refresh GPS'}</span>
+                </button>
+              </div>
+
+              {livePosition ? (
+                <div className="mt-2 text-[11px] space-y-0.5 pt-1.5 border-t border-black/5">
+                  <p className="font-mono text-slate-600">
+                    📍 Coordinates: {livePosition.latitude.toFixed(6)}, {livePosition.longitude.toFixed(6)}
+                    {livePosition.accuracy ? ` (±${Math.round(livePosition.accuracy)}m)` : ''}
+                  </p>
+                  <p className="font-medium text-slate-800">
+                    Distance to site center: <strong className={isInside ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>{distanceM}m</strong> (Allowed: {allowedRadius}m)
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Ensure phone GPS / Location is turned ON in Android settings. Tap <strong>Refresh GPS</strong> to capture coordinates.
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Real Geofence Map Viewer for Worker */}
         <div className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-xs space-y-2">

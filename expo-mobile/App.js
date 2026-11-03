@@ -5,7 +5,6 @@ import {
   View,
   ActivityIndicator,
   Text,
-  TextInput,
   TouchableOpacity,
   BackHandler,
   Platform,
@@ -63,8 +62,8 @@ async function registerForPushNotificationsAsync() {
   return token;
 }
 
-// Default to Production Render Labour portal
-const DEFAULT_URL = 'https://solar-erp-app.onrender.com/labour';
+// Production Render Labour portal
+const PRODUCTION_URL = 'https://solar-erp-app.onrender.com/labour';
 
 export default function App() {
   const webViewRef = useRef(null);
@@ -72,11 +71,45 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [expoPushToken, setExpoPushToken] = useState('');
-  const [serverUrl, setServerUrl] = useState(DEFAULT_URL);
-  const [inputUrl, setInputUrl] = useState(DEFAULT_URL);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [showConfig, setShowConfig] = useState(false);
+
+  // Fetch native device GPS fix and stream to WebView
+  const syncNativeLocation = async () => {
+    try {
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      if (loc?.coords) {
+        injectNativeLocation(loc.coords, loc.timestamp);
+      }
+    } catch (e) {
+      try {
+        const last = await Location.getLastKnownPositionAsync();
+        if (last?.coords) {
+          injectNativeLocation(last.coords, last.timestamp);
+        }
+      } catch (err) {
+        console.warn('Native GPS fix failed:', err);
+      }
+    }
+  };
+
+  const injectNativeLocation = (coords, timestamp) => {
+    if (!webViewRef.current || !coords) return;
+    const script = `
+      if (window.updateNativeGPS) {
+        window.updateNativeGPS({
+          latitude: ${coords.latitude},
+          longitude: ${coords.longitude},
+          accuracy: ${coords.accuracy || 10},
+          timestamp: ${timestamp || Date.now()}
+        });
+      }
+      true;
+    `;
+    webViewRef.current.injectJavaScript(script);
+  };
 
   // Initialize Push Notifications
   useEffect(() => {
@@ -95,13 +128,33 @@ export default function App() {
     }
   }, [isLoading]);
 
-  // Request native GPS permission upfront so the WebView has access immediately
+  // Request native GPS permission upfront and stream fixes to WebView
   useEffect(() => {
+    let watcherSubscription = null;
+
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           setHasLocationPermission(true);
+          await syncNativeLocation();
+
+          try {
+            watcherSubscription = await Location.watchPositionAsync(
+              {
+                accuracy: Location.Accuracy.Balanced,
+                timeInterval: 8000,
+                distanceInterval: 5,
+              },
+              (loc) => {
+                if (loc?.coords) {
+                  injectNativeLocation(loc.coords, loc.timestamp);
+                }
+              }
+            );
+          } catch (e) {
+            console.warn('Could not start location watcher:', e);
+          }
         } else {
           Alert.alert(
             'GPS Permission Required',
@@ -113,16 +166,18 @@ export default function App() {
         console.warn('Location permission request failed:', err);
       }
     })();
+
+    return () => {
+      if (watcherSubscription && typeof watcherSubscription.remove === 'function') {
+        watcherSubscription.remove();
+      }
+    };
   }, []);
 
   // Handle Android physical back button
   useEffect(() => {
     if (Platform.OS === 'android') {
       const onBackPress = () => {
-        if (showConfig) {
-          setShowConfig(false);
-          return true;
-        }
         if (canGoBack && webViewRef.current) {
           webViewRef.current.goBack();
           return true;
@@ -133,19 +188,7 @@ export default function App() {
       const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => subscription.remove();
     }
-  }, [canGoBack, showConfig]);
-
-  const handleApplyUrl = () => {
-    let clean = inputUrl.trim();
-    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-      clean = 'http://' + clean;
-    }
-    setServerUrl(clean);
-    setInputUrl(clean);
-    setHasError(false);
-    setShowConfig(false);
-    setIsLoading(true);
-  };
+  }, [canGoBack]);
 
   const handleRetry = () => {
     setHasError(false);
@@ -155,78 +198,92 @@ export default function App() {
     }
   };
 
+  const bridgeScript = `
+    window.EXPO_PUSH_TOKEN = ${JSON.stringify(expoPushToken || '')};
+    (function() {
+      window.__NATIVE_GPS__ = null;
+      window.__GPS_LISTENERS__ = [];
+
+      window.updateNativeGPS = function(coords) {
+        window.__NATIVE_GPS__ = coords;
+        var list = window.__GPS_LISTENERS__.slice(0);
+        window.__GPS_LISTENERS__ = [];
+        list.forEach(function(fn) {
+          try { fn(coords); } catch(e) {}
+        });
+        try {
+          window.dispatchEvent(new CustomEvent('nativeLocationUpdate', { detail: coords }));
+        } catch(e) {}
+      };
+
+      if (navigator && navigator.geolocation) {
+        var origGetCurrentPosition = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);
+        navigator.geolocation.getCurrentPosition = function(success, error, options) {
+          if (window.__NATIVE_GPS__) {
+            success({
+              coords: {
+                latitude: window.__NATIVE_GPS__.latitude,
+                longitude: window.__NATIVE_GPS__.longitude,
+                accuracy: window.__NATIVE_GPS__.accuracy || 10,
+                altitude: null,
+                altitudeAccuracy: null,
+                heading: null,
+                speed: null,
+              },
+              timestamp: window.__NATIVE_GPS__.timestamp || Date.now()
+            });
+            return;
+          }
+
+          if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+            window.__GPS_LISTENERS__.push(function(coords) {
+              success({
+                coords: {
+                  latitude: coords.latitude,
+                  longitude: coords.longitude,
+                  accuracy: coords.accuracy || 10,
+                  altitude: null,
+                  altitudeAccuracy: null,
+                  heading: null,
+                  speed: null,
+                },
+                timestamp: coords.timestamp || Date.now()
+              });
+            });
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'REQUEST_LOCATION' }));
+            setTimeout(function() {
+              origGetCurrentPosition(success, error, options);
+            }, 2500);
+          } else {
+            origGetCurrentPosition(success, error, options);
+          }
+        };
+      }
+    })();
+    true;
+  `;
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" backgroundColor="#014025" />
-
-      {/* Top Bar for quick server connection settings */}
-      <View style={styles.headerBar}>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          Solar ERP • {serverUrl.replace(/^https?:\/\//, '')}
-        </Text>
-        <TouchableOpacity
-          style={styles.configBtn}
-          onPress={() => setShowConfig(!showConfig)}
-        >
-          <Text style={styles.configBtnText}>{showConfig ? 'Close' : '⚙ Server'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Server URL Config Modal / Drawer */}
-      {showConfig && (
-        <View style={styles.configContainer}>
-          <Text style={styles.configLabel}>Server Address (PC IP + Port):</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.urlInput}
-              value={inputUrl}
-              onChangeText={setInputUrl}
-              placeholder="e.g. http://192.168.0.38:3000"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-            <TouchableOpacity style={styles.applyBtn} onPress={handleApplyUrl}>
-              <Text style={styles.applyBtnText}>Connect</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.configHint}>
-            Make sure your PC server is running (`npx tsx server.ts`) and your phone is on the same Wi-Fi.
-          </Text>
-        </View>
-      )}
 
       {/* WebView or Error Screen */}
       {hasError ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorEmoji}>⚠️</Text>
-          <Text style={styles.errorTitle}>Cannot Connect to Server</Text>
+          <Text style={styles.errorTitle}>Cannot Connect to Solar ERP</Text>
           <Text style={styles.errorSubtext}>
-            Unable to reach {serverUrl}.{'\n'}
-            {errorMessage ? `Error: ${errorMessage}\n\n` : ''}
-            Please check:
+            Please check your internet connection and tap retry.
+            {errorMessage ? `\n\n(${errorMessage})` : ''}
           </Text>
-          <View style={styles.checklist}>
-            <Text style={styles.checkItem}>1. Is the web server running on your PC? (`npx tsx server.ts`)</Text>
-            <Text style={styles.checkItem}>2. Is your phone on the same Wi-Fi network?</Text>
-            <Text style={styles.checkItem}>3. Did your PC IP change? Current IP: 192.168.0.38</Text>
-          </View>
-          <View style={styles.btnRow}>
-            <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
-              <Text style={styles.retryBtnText}>Retry</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.changeUrlBtn}
-              onPress={() => setShowConfig(true)}
-            >
-              <Text style={styles.changeUrlBtnText}>Edit Server IP</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
+            <Text style={styles.retryBtnText}>Retry Connection</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <WebView
           ref={webViewRef}
-          source={{ uri: serverUrl }}
+          source={{ uri: PRODUCTION_URL }}
           style={styles.webview}
           geolocationEnabled={true}
           javaScriptEnabled={true}
@@ -236,12 +293,25 @@ export default function App() {
           allowUniversalAccessFromFileURLs={true}
           allowsInlineMediaPlayback={true}
           mediaPlaybackRequiresUserAction={false}
-          injectedJavaScriptBeforeContentLoaded={`window.EXPO_PUSH_TOKEN = ${JSON.stringify(expoPushToken || '')}; true;`}
+          injectedJavaScriptBeforeContentLoaded={bridgeScript}
+          onMessage={async (event) => {
+            try {
+              const data = JSON.parse(event.nativeEvent.data);
+              if (data.type === 'REQUEST_LOCATION') {
+                await syncNativeLocation();
+              }
+            } catch (e) {
+              // Ignore non-json messages
+            }
+          }}
           onNavigationStateChange={(navState) => {
             setCanGoBack(navState.canGoBack);
           }}
           onLoadStart={() => setIsLoading(true)}
-          onLoad={() => setIsLoading(false)}
+          onLoad={() => {
+            setIsLoading(false);
+            syncNativeLocation();
+          }}
           onLoadProgress={({ nativeEvent }) => {
             if (nativeEvent.progress >= 0.5) {
               setIsLoading(false);
@@ -249,6 +319,7 @@ export default function App() {
           }}
           onLoadEnd={() => {
             setIsLoading(false);
+            syncNativeLocation();
             if (expoPushToken && webViewRef.current) {
               const script = `
                 window.EXPO_PUSH_TOKEN = ${JSON.stringify(expoPushToken)};
@@ -289,7 +360,7 @@ export default function App() {
           <View style={styles.card}>
             <ActivityIndicator size="large" color="#014025" />
             <Text style={styles.brandTitle}>Solar ERP</Text>
-            <Text style={styles.loadingSubtext}>Connecting to {serverUrl.replace(/^https?:\/\//, '')}...</Text>
+            <Text style={styles.loadingSubtext}>Connecting to Solar ERP...</Text>
             <Text style={styles.dismissHint}>Tap anywhere to dismiss</Text>
           </View>
         </TouchableOpacity>
@@ -302,73 +373,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#014025',
-  },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#01321d',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    paddingTop: Platform.OS === 'android' ? 32 : 8,
-  },
-  headerTitle: {
-    color: '#E2E8F0',
-    fontSize: 12,
-    fontWeight: '600',
-    flex: 1,
-  },
-  configBtn: {
-    backgroundColor: '#036238',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginLeft: 8,
-  },
-  configBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  configContainer: {
-    backgroundColor: '#022616',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#034a2b',
-  },
-  configLabel: {
-    color: '#94A3B8',
-    fontSize: 11,
-    marginBottom: 6,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  urlInput: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    color: '#0F172A',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 13,
-  },
-  applyBtn: {
-    backgroundColor: '#16A34A',
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-    borderRadius: 6,
-  },
-  applyBtnText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  configHint: {
-    color: '#64748B',
-    fontSize: 11,
-    marginTop: 6,
+    paddingTop: Platform.OS === 'android' ? 24 : 0,
   },
   webview: {
     flex: 1,
@@ -449,45 +454,17 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     textAlign: 'center',
     lineHeight: 18,
-  },
-  checklist: {
-    backgroundColor: '#1E293B',
-    padding: 14,
-    borderRadius: 10,
-    width: '100%',
-    marginVertical: 16,
-  },
-  checkItem: {
-    color: '#CBD5E1',
-    fontSize: 12,
-    marginVertical: 3,
-    lineHeight: 16,
-  },
-  btnRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+    marginBottom: 16,
   },
   retryBtn: {
     backgroundColor: '#16A34A',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
   },
   retryBtnText: {
     color: '#ffffff',
     fontWeight: '700',
-    fontSize: 14,
-  },
-  changeUrlBtn: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  changeUrlBtnText: {
-    color: '#F8FAFC',
-    fontWeight: '600',
     fontSize: 14,
   },
 });
