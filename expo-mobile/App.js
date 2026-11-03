@@ -63,8 +63,8 @@ async function registerForPushNotificationsAsync() {
   return token;
 }
 
-// Default to Labour portal (workers see OTP by default; admins can tap 'Admin Sign In')
-const DEFAULT_URL = 'http://192.168.0.38:3000/labour';
+// Default to Production Render Labour portal
+const DEFAULT_URL = 'https://solar-erp-app.onrender.com/labour';
 
 export default function App() {
   const webViewRef = useRef(null);
