@@ -9,6 +9,7 @@ import {
   BackHandler,
   Platform,
   Alert,
+  StatusBar as RNStatusBar,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
@@ -467,7 +468,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#014025',
-    paddingTop: Platform.OS === 'android' ? 24 : 0,
+    paddingTop: Platform.OS === 'android' ? ((RNStatusBar.currentHeight || 36) + 10) : 14,
   },
   webview: {
     flex: 1,

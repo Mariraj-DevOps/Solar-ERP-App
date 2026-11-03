@@ -1285,10 +1285,13 @@ export async function sendExpoPushNotification(params: {
 }) {
   try {
     const rows = db.prepare('SELECT push_token FROM user_push_tokens WHERE user_id = ?').all(params.userId) as Array<{ push_token: string }>;
-    if (!rows || rows.length === 0) return;
+    if (!rows || rows.length === 0) {
+      console.log(`[Expo Push Dispatch] No registered device push token for userId ${params.userId}. Worker must open the updated mobile app once to register device.`);
+      return;
+    }
 
     const messages = rows
-      .filter(r => r.push_token && (r.push_token.startsWith('ExponentPushToken[') || r.push_token.startsWith('ExpoPushToken[')))
+      .filter(r => r.push_token)
       .map(r => ({
         to: r.push_token,
         sound: 'default',
@@ -1301,7 +1304,7 @@ export async function sendExpoPushNotification(params: {
 
     if (messages.length === 0) return;
 
-    await fetch('https://exp.host/--/api/v2/push/send', {
+    const pushRes = await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
@@ -1310,6 +1313,8 @@ export async function sendExpoPushNotification(params: {
       },
       body: JSON.stringify(messages),
     });
+    const pushJson = await pushRes.json();
+    console.log('[Expo Push Dispatch Result]:', JSON.stringify(pushJson));
   } catch (err) {
     console.error('[Expo Push Dispatch Error]:', err);
   }

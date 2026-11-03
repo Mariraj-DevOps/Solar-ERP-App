@@ -59,6 +59,20 @@ export function LabourerDashboardPage() {
       setWorksites(wsRes || []);
       setTeams(tmsRes || []);
 
+      // Trigger immediate vibration and native notification if spot check is active
+      if (Array.isArray(verifRes) && verifRes.length > 0) {
+        if ((window as any).ReactNativeWebView) {
+          (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'LOCAL_NOTIFICATION',
+            title: '🚨 Spot Verification Requested',
+            body: `Dispatched by ${verifRes[0].requested_by_name || 'Supervisor'}. Please confirm your GPS presence within 30 minutes.`,
+          }));
+        }
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try { navigator.vibrate([400, 200, 400, 200, 600]); } catch (e) {}
+        }
+      }
+
       let matchedTeam: any = null;
       if (user?.assignedTeamId && Array.isArray(tmsRes)) {
         matchedTeam = tmsRes.find((t: any) => t.id === user.assignedTeamId);
@@ -90,7 +104,14 @@ export function LabourerDashboardPage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 20000); // 20s poll
+    // Fast polling (7s) so verification requests appear almost immediately on phone
+    const interval = setInterval(fetchData, 7000);
+
+    // Register push token if available in native bridge
+    if ((window as any).EXPO_PUSH_TOKEN) {
+      api.notifications.registerPushToken((window as any).EXPO_PUSH_TOKEN).catch(() => {});
+    }
+
     return () => clearInterval(interval);
   }, []);
 

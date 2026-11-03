@@ -102,7 +102,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
 
       {/* Floating Modern Toast Stack Container */}
-      <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] w-[92%] sm:w-auto sm:min-w-[360px] sm:max-w-md pointer-events-none space-y-2">
+      <div className="fixed top-10 sm:top-5 left-1/2 -translate-x-1/2 z-[9999] w-[92%] sm:w-auto sm:min-w-[360px] sm:max-w-md pointer-events-none space-y-2 pt-1">
         {toasts.map((t) => {
           let bgClass = 'bg-white border-slate-200 text-slate-800';
           let icon = <Info className="w-5 h-5 text-sky-600 shrink-0" />;
