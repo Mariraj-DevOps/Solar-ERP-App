@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
+  ShieldAlert,
   UserCheck,
   UserPlus,
   AlertCircle,
@@ -55,6 +56,33 @@ export function StaffManagementPage() {
     mobileNumber: '',
   });
   const [isEditing, setIsEditing] = useState(false);
+
+  // Spot verification request state for staff
+  const [spotCheckStaff, setSpotCheckStaff] = useState<any | null>(null);
+  const [spotCheckNotes, setSpotCheckNotes] = useState('');
+  const [isSubmittingSpotCheck, setIsSubmittingSpotCheck] = useState(false);
+
+  const handleTriggerStaffSpotCheck = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!spotCheckStaff) return;
+    setIsSubmittingSpotCheck(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await api.verifications.request({
+        targetType: 'staff',
+        targetUserId: spotCheckStaff.id,
+        notes: spotCheckNotes.trim() || 'Staff attendance spot verification',
+      });
+      setSuccess(`30-Minute spot verification dispatched to ${spotCheckStaff.full_name}. They have 30 minutes to confirm their location.`);
+      setSpotCheckStaff(null);
+      setSpotCheckNotes('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to dispatch spot verification request');
+    } finally {
+      setIsSubmittingSpotCheck(false);
+    }
+  };
 
   useEffect(() => {
     loadUsers();
@@ -422,6 +450,21 @@ export function StaffManagementPage() {
                           </button>
                         )}
 
+                        {/* Spot Check: Master Admin or Assigned Secondary Admin for staff */}
+                        {(isMasterAdmin || (isSecondaryAdmin && u.role === 'staff')) && u.role === 'staff' && u.id !== currentUser?.id && (
+                          <button
+                            onClick={() => {
+                              setSpotCheckStaff(u);
+                              setSpotCheckNotes('Field/office attendance spot verification');
+                            }}
+                            className="px-2 py-1 text-xs bg-amber-50 border border-amber-300 text-amber-900 rounded hover:bg-amber-100 inline-flex items-center space-x-1 cursor-pointer font-medium"
+                            title="Request 30-Minute GPS Spot Check"
+                          >
+                            <ShieldAlert className="w-3 h-3 text-amber-700" />
+                            <span>Spot Check</span>
+                          </button>
+                        )}
+
                         {/* Reset Password */}
                         {(isMasterAdmin || (isSecondaryAdmin && u.role === 'staff')) && (
                           <button
@@ -582,6 +625,67 @@ export function StaffManagementPage() {
                   className="px-4 py-1.5 bg-[#014025] hover:bg-[#014025]/85 text-white rounded-md font-semibold cursor-pointer disabled:opacity-50"
                 >
                   {isEditing ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Spot Check Modal for Staff */}
+      {spotCheckStaff && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2 text-amber-900">
+                <ShieldAlert className="w-5 h-5 text-amber-600" />
+                <h3 className="font-bold text-sm">Request Staff Spot Verification</h3>
+              </div>
+              <button
+                onClick={() => setSpotCheckStaff(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs text-amber-950 space-y-1">
+              <p className="font-semibold text-sm">{spotCheckStaff.full_name}</p>
+              <p className="text-amber-800">
+                {spotCheckStaff.designation || 'Staff Member'} • {spotCheckStaff.assigned_location || 'General Site'}
+              </p>
+              <p className="text-[11px] text-amber-700 pt-1">
+                Dispatches an urgent 30-minute spot check request. The staff member will receive an in-app alert and must submit their live GPS coordinates within 30 minutes.
+              </p>
+            </div>
+
+            <form onSubmit={handleTriggerStaffSpotCheck} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Reason / Notes (Optional)</label>
+                <input
+                  type="text"
+                  value={spotCheckNotes}
+                  onChange={(e) => setSpotCheckNotes(e.target.value)}
+                  placeholder="e.g. Afternoon shift field presence check"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-[#0E6037] focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSpotCheckStaff(null)}
+                  className="px-3 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingSpotCheck}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 shadow-sm"
+                >
+                  <ShieldAlert className="w-4 h-4" />
+                  <span>{isSubmittingSpotCheck ? 'Dispatching...' : 'Dispatch 30-Min Spot Check'}</span>
                 </button>
               </div>
             </form>

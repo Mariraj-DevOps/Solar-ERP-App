@@ -16,6 +16,9 @@ import {
   Plus,
   ChevronRight,
   ShieldAlert,
+  Navigation,
+  MapPin,
+  Compass,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { formatINR, round2 } from '../lib/calculations';
@@ -27,6 +30,19 @@ import {
 } from '../lib/dateUtils';
 import { WeekNavigator } from '../components/WeekNavigator';
 import { useAuth } from '../context/AuthContext';
+
+function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
 
 interface DashboardPageProps {
   onNavigate?: (tab: any, params?: any) => void;
@@ -46,6 +62,17 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Staff Daily GPS Attendance & Spot Verification states
+  const [staffTodayRecord, setStaffTodayRecord] = useState<any | null>(null);
+  const [activeVerifications, setActiveVerifications] = useState<any[]>([]);
+  const [assignedWorksite, setAssignedWorksite] = useState<any | null>(null);
+  const [staffGpsPosition, setStaffGpsPosition] = useState<{ latitude: number; longitude: number; accuracy?: number } | null>(null);
+  const [isLocatingGps, setIsLocatingGps] = useState(false);
+  const [isSubmittingAttendance, setIsSubmittingAttendance] = useState(false);
+  const [staffAttSuccess, setStaffAttSuccess] = useState<string | null>(null);
+  const [staffAttError, setStaffAttError] = useState<string | null>(null);
+  const [verifTimeRemaining, setVerifTimeRemaining] = useState<string>('');
+
   const todayKolkata = getTodayKolkataISO();
   const weekBounds = getWeekBounds(currentWeekStart);
 
@@ -55,17 +82,27 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
     try {
       const todayDate = new Date();
       const auditPromise = isAdminAny ? api.audit.list({ limit: 6 }).catch(() => []) : Promise.resolve([]);
-      const [weekly, todayAtt, auditLogs, monthly] = await Promise.all([
+      const [weekly, todayAtt, auditLogs, monthly, myTodayGps, activeSpotChecks, worksitesList] = await Promise.all([
         api.reports.getWeekly(currentWeekStart),
         api.attendance.list({ date: todayKolkata }),
         auditPromise,
         api.reports.getMonthly(todayDate.getFullYear(), todayDate.getMonth() + 1),
+        api.gpsAttendance.getToday().catch(() => null),
+        api.verifications.getActive().catch(() => []),
+        api.worksites.list().catch(() => []),
       ]);
 
       setWeeklyReport(weekly);
       setTodayAttendance(todayAtt);
       setRecentAudits(auditLogs);
       setMonthlyTotals(monthly?.totals || null);
+      setStaffTodayRecord(myTodayGps?.todayRecord || null);
+      setActiveVerifications(activeSpotChecks || []);
+
+      if (Array.isArray(worksitesList) && worksitesList.length > 0) {
+        const found = user?.assignedWorksiteId ? worksitesList.find((w: any) => w.id === user.assignedWorksiteId) : worksitesList[0];
+        setAssignedWorksite(found || worksitesList[0]);
+      }
 
       if (isAdminAny) {
         try {
@@ -77,6 +114,157 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
       setError(err.message || 'Failed to load dashboard analytics');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getDeviceLocation = (): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+      const nativeGps = (window as any).__NATIVE_GPS__;
+      if (nativeGps?.latitude && nativeGps?.longitude) {
+        return resolve({
+          coords: {
+            latitude: nativeGps.latitude,
+            longitude: nativeGps.longitude,
+            accuracy: nativeGps.accuracy || 10,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: nativeGps.timestamp || Date.now(),
+        } as GeolocationPosition);
+      }
+
+      if (!navigator.geolocation) {
+        return reject(new Error('Geolocation is not supported by your browser or device.'));
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        () => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => resolve(pos),
+            (err) => reject(new Error('Unable to capture GPS location. Please ensure location is enabled.')),
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+          );
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 }
+      );
+    });
+  };
+
+  const handleRefreshGps = async () => {
+    setIsLocatingGps(true);
+    try {
+      if ((window as any).ReactNativeWebView?.postMessage) {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'REQUEST_LOCATION' }));
+      }
+      const pos = await getDeviceLocation();
+      setStaffGpsPosition({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+      });
+    } catch (e: any) {
+      console.warn('GPS refresh error:', e);
+    } finally {
+      setIsLocatingGps(false);
+    }
+  };
+
+  useEffect(() => {
+    handleRefreshGps();
+  }, []);
+
+  useEffect(() => {
+    if (activeVerifications.length === 0) return;
+    const targetExpiry = new Date(activeVerifications[0].expires_at).getTime();
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const diff = targetExpiry - now;
+      if (diff <= 0) {
+        setVerifTimeRemaining('Expired');
+        clearInterval(interval);
+      } else {
+        const mins = Math.floor(diff / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+        setVerifTimeRemaining(`${mins}m ${secs < 10 ? '0' : ''}${secs}s`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeVerifications]);
+
+  const handleStaffCheckIn = async () => {
+    setIsSubmittingAttendance(true);
+    setStaffAttError(null);
+    setStaffAttSuccess(null);
+    try {
+      const pos = await getDeviceLocation();
+      const { latitude, longitude, accuracy } = pos.coords;
+      setStaffGpsPosition({ latitude, longitude, accuracy });
+      const res = await api.gpsAttendance.checkIn({
+        latitude,
+        longitude,
+        accuracy: Math.round(accuracy),
+        deviceTimestamp: new Date(pos.timestamp).toISOString(),
+      });
+      setStaffAttSuccess(res.message || 'Check-in recorded successfully!');
+      const todayRes = await api.gpsAttendance.getToday();
+      setStaffTodayRecord(todayRes?.todayRecord || null);
+    } catch (err: any) {
+      setStaffAttError(err.message || 'Check-in failed');
+    } finally {
+      setIsSubmittingAttendance(false);
+    }
+  };
+
+  const handleStaffCheckOut = async () => {
+    setIsSubmittingAttendance(true);
+    setStaffAttError(null);
+    setStaffAttSuccess(null);
+    try {
+      const pos = await getDeviceLocation();
+      const { latitude, longitude, accuracy } = pos.coords;
+      setStaffGpsPosition({ latitude, longitude, accuracy });
+      const res = await api.gpsAttendance.checkOut({
+        latitude,
+        longitude,
+        accuracy: Math.round(accuracy),
+        deviceTimestamp: new Date(pos.timestamp).toISOString(),
+      });
+      setStaffAttSuccess(res.message || 'Check-out recorded successfully!');
+      const todayRes = await api.gpsAttendance.getToday();
+      setStaffTodayRecord(todayRes?.todayRecord || null);
+    } catch (err: any) {
+      setStaffAttError(err.message || 'Check-out failed');
+    } finally {
+      setIsSubmittingAttendance(false);
+    }
+  };
+
+  const handleStaffRespondVerification = async (verifId: string) => {
+    setIsSubmittingAttendance(true);
+    setStaffAttError(null);
+    setStaffAttSuccess(null);
+    try {
+      const pos = await getDeviceLocation();
+      const { latitude, longitude, accuracy } = pos.coords;
+      setStaffGpsPosition({ latitude, longitude, accuracy });
+      const res = await api.verifications.respond(verifId, {
+        latitude,
+        longitude,
+        accuracy: Math.round(accuracy),
+        deviceTimestamp: new Date(pos.timestamp).toISOString(),
+      });
+      setStaffAttSuccess(res.message || 'Spot verification confirmed successfully!');
+      const active = await api.verifications.getActive();
+      setActiveVerifications(active || []);
+    } catch (err: any) {
+      setStaffAttError(err.message || 'Spot verification response failed');
+    } finally {
+      setIsSubmittingAttendance(false);
     }
   };
 
@@ -216,6 +404,192 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
           </button>
         )}
       </div>
+
+      {/* 30-Minute Random Spot Verification Alert Banner (If Dispatched to Current User) */}
+      {activeVerifications.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-white rounded-2xl p-4 sm:p-5 shadow-lg border-2 border-amber-400 animate-pulse-subtle">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start space-x-3">
+              <ShieldAlert className="w-6 h-6 text-white shrink-0 mt-0.5" />
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-sm font-bold uppercase tracking-wider">Attendance Spot Verification Requested</h3>
+                  <span className="bg-white text-amber-900 font-mono text-xs font-bold px-2.5 py-0.5 rounded-full shadow-xs">
+                    ⏳ {verifTimeRemaining || '30m 00s'}
+                  </span>
+                </div>
+                <p className="text-xs text-amber-100 mt-1">
+                  Spot presence verification dispatched by <strong>{activeVerifications[0].requested_by_name}</strong>. Please confirm your physical location.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={isSubmittingAttendance}
+              onClick={() => handleStaffRespondVerification(activeVerifications[0].id)}
+              className="w-full sm:w-auto px-5 py-2.5 bg-white text-amber-900 hover:bg-amber-50 font-bold rounded-xl text-xs shadow-md flex items-center justify-center space-x-2 cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
+            >
+              <Navigation className="w-4 h-4 text-amber-700" />
+              <span>{isSubmittingAttendance ? 'Capturing Location...' : 'Verify My Attendance Now'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Staff Daily Attendance & Worksite Geofence Widget */}
+      {(() => {
+        const isCheckedIn = Boolean(staffTodayRecord?.check_in_time && !staffTodayRecord?.check_out_time);
+        const isCheckedOut = Boolean(staffTodayRecord?.check_out_time);
+        const siteLat = assignedWorksite?.latitude || 12.9715987;
+        const siteLng = assignedWorksite?.longitude || 77.5945627;
+        const allowedRadius = assignedWorksite?.allowed_radius_meters || assignedWorksite?.radius_meters || 150;
+        const distanceM = staffGpsPosition
+          ? computeDistanceMeters(staffGpsPosition.latitude, staffGpsPosition.longitude, siteLat, siteLng)
+          : null;
+        const isInside = distanceM !== null ? distanceM <= allowedRadius : false;
+
+        return (
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#0E6037] flex items-center justify-center font-bold">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-sm font-bold text-slate-900">My Daily Attendance & Geofence</h3>
+                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-mono">
+                      {todayKolkata}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Assigned Site: <strong className="text-slate-700">{assignedWorksite?.name || user?.assignedLocation || 'General Site'}</strong> ({allowedRadius}m boundary)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={handleRefreshGps}
+                  disabled={isLocatingGps}
+                  className="px-2.5 py-1.5 text-xs text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg flex items-center space-x-1 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                  title="Refresh GPS Coordinates"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLocatingGps ? 'animate-spin text-[#0E6037]' : ''}`} />
+                  <span>{isLocatingGps ? 'Locating...' : 'Refresh GPS'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Attendance Status & Action Area */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+              {/* Status Box */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Today's Status</span>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${
+                    isCheckedOut
+                      ? 'bg-blue-500'
+                      : isCheckedIn
+                      ? 'bg-emerald-500 animate-pulse'
+                      : 'bg-slate-400'
+                  }`} />
+                  <span className="text-xs font-bold text-slate-900">
+                    {isCheckedOut
+                      ? 'Attendance Completed'
+                      : isCheckedIn
+                      ? 'Checked In (Active)'
+                      : 'Not Checked In'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-600 pt-0.5 space-y-0.5 font-mono">
+                  {staffTodayRecord?.check_in_time && (
+                    <p>In: {new Date(staffTodayRecord.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  )}
+                  {staffTodayRecord?.check_out_time && (
+                    <p>Out: {new Date(staffTodayRecord.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Live Location Box */}
+              <div className={`p-3 rounded-xl border space-y-1 ${
+                staffGpsPosition
+                  ? isInside
+                    ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                    : 'bg-amber-50/70 border-amber-200 text-amber-950'
+                  : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}>
+                <span className="text-[10px] uppercase font-bold tracking-wider opacity-75">GPS Verification</span>
+                <p className="text-xs font-semibold">
+                  {staffGpsPosition
+                    ? isInside
+                      ? 'Within Worksite Geofence ✅'
+                      : 'Outside Allowed Radius ⚠️'
+                    : 'Awaiting Location Fix'}
+                </p>
+                {staffGpsPosition ? (
+                  <p className="text-[11px] font-mono opacity-85">
+                    {distanceM !== null ? `${distanceM}m to center` : ''} (±{Math.round(staffGpsPosition.accuracy || 10)}m accuracy)
+                  </p>
+                ) : (
+                  <p className="text-[11px] opacity-75">Turn on GPS to verify position</p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center space-x-2">
+                {!isCheckedIn && !isCheckedOut && (
+                  <button
+                    type="button"
+                    disabled={isSubmittingAttendance}
+                    onClick={handleStaffCheckIn}
+                    className="flex-1 py-2.5 px-4 bg-[#0E6037] hover:bg-[#0E6037]/90 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 transition-transform active:scale-95"
+                  >
+                    <Navigation className="w-4 h-4" />
+                    <span>{isSubmittingAttendance ? 'Recording...' : 'Check In Attendance'}</span>
+                  </button>
+                )}
+
+                {isCheckedIn && (
+                  <button
+                    type="button"
+                    disabled={isSubmittingAttendance}
+                    onClick={handleStaffCheckOut}
+                    className="flex-1 py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 transition-transform active:scale-95"
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span>{isSubmittingAttendance ? 'Recording...' : 'Check Out Attendance'}</span>
+                  </button>
+                )}
+
+                {isCheckedOut && (
+                  <div className="flex-1 py-2.5 px-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold text-center flex items-center justify-center space-x-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Day Completed</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Success & Error Feedback */}
+            {staffAttSuccess && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center space-x-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{staffAttSuccess}</span>
+              </div>
+            )}
+            {staffAttError && (
+              <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                <span>{staffAttError}</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* KPI Cards: Current Week Financial Snapshot */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

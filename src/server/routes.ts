@@ -5413,6 +5413,25 @@ apiRouter.post('/verifications/request', requireAuth, requireStaffOrAdmin, (req:
     return res.status(403).json({ error: 'You cannot request verification for your own account.' });
   }
 
+  // Role-based spot check authorization:
+  if (targetUserId) {
+    const targetUser = db.prepare('SELECT * FROM users WHERE id = ?').get(targetUserId) as any;
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Target user not found.' });
+    }
+
+    if (targetUser.role === 'staff') {
+      // Only Master Admin or the assigned Secondary Admin can request spot check for staff
+      if (!isMasterAdmin(req.user) && !canAccessStaff(req.user!, targetUser.id)) {
+        return res.status(403).json({
+          error: 'Only Master Admin or the assigned Secondary Admin can request spot verification for this staff member.',
+        });
+      }
+    } else if (targetUser.role === 'secondary_admin' || targetUser.role === 'admin' || targetUser.role === 'master_admin') {
+      return res.status(403).json({ error: 'Spot verification cannot be requested for administrator accounts.' });
+    }
+  }
+
   const now = new Date();
   const requestedAt = now.toISOString();
   // EXACTLY 30 minutes expiry
@@ -5439,22 +5458,23 @@ apiRouter.post('/verifications/request', requireAuth, requireStaffOrAdmin, (req:
     requestedAt
   );
 
-  // Send persistent in-app notifications to target labourers
+  // Send persistent in-app notifications to target users (labourers and staff)
   let targetUserIds: string[] = [];
   if (targetUserId) {
     targetUserIds = [targetUserId];
   } else if (targetTeamId) {
-    const labourers = db.prepare("SELECT id FROM users WHERE assigned_team_id = ? AND role = 'labourer'").all(targetTeamId) as Array<{ id: string }>;
-    targetUserIds = labourers.map(l => l.id);
+    const members = db.prepare("SELECT id FROM users WHERE assigned_team_id = ? AND role IN ('labourer', 'staff')").all(targetTeamId) as Array<{ id: string }>;
+    targetUserIds = members.map(m => m.id);
   }
 
   for (const uid of targetUserIds) {
+    const member = db.prepare('SELECT role FROM users WHERE id = ?').get(uid) as any;
     createNotification({
       userId: uid,
       title: 'Action Required: Attendance Verification',
-      message: `Verification requested by ${req.user!.fullName}. Please confirm your location within 30 minutes.`,
+      message: `Spot verification requested by ${req.user!.fullName}. Please confirm your GPS location within 30 minutes.`,
       type: 'approval',
-      link: '/attendance',
+      link: member?.role === 'staff' ? '/dashboard' : '/attendance',
     });
   }
 
@@ -5650,7 +5670,7 @@ apiRouter.get('/verifications/list', requireAuth, requireStaffOrAdmin, (req: Req
   db.prepare("UPDATE attendance_verification_requests SET status = 'expired' WHERE status = 'pending' AND expires_at < ?").run(now);
 
   let query = `
-    SELECT v.*, u.full_name as target_user_name, t.name as target_team_name, w.name as worksite_name
+    SELECT v.*, u.full_name as target_user_name, u.role as target_user_role, t.name as target_team_name, w.name as worksite_name
     FROM attendance_verification_requests v
     LEFT JOIN users u ON v.target_user_id = u.id
     LEFT JOIN teams t ON v.target_team_id = t.id

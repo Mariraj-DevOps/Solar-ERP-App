@@ -49,7 +49,7 @@ export function GpsAttendancePage() {
   // Verifications State
   const [verifications, setVerifications] = useState<any[]>([]);
   const [showTriggerVerifModal, setShowTriggerVerifModal] = useState(false);
-  const [verifTargetType, setVerifTargetType] = useState<'individual' | 'team'>('individual');
+  const [verifTargetType, setVerifTargetType] = useState<'individual' | 'team' | 'staff'>('individual');
   const [verifTargetUserId, setVerifTargetUserId] = useState('');
   const [verifTargetTeamId, setVerifTargetTeamId] = useState('');
   const [verifNotes, setVerifNotes] = useState('');
@@ -167,9 +167,9 @@ export function GpsAttendancePage() {
     try {
       await api.verifications.request({
         targetType: verifTargetType,
-        targetUserId: verifTargetType === 'individual' ? verifTargetUserId : undefined,
+        targetUserId: (verifTargetType === 'individual' || verifTargetType === 'staff') ? verifTargetUserId : undefined,
         targetTeamId: verifTargetType === 'team' ? verifTargetTeamId : undefined,
-        notes: verifNotes || 'Random spot check request',
+        notes: verifNotes || (verifTargetType === 'staff' ? 'Staff 30-minute spot check request' : 'Random spot check request'),
       });
       setShowTriggerVerifModal(false);
       setVerifNotes('');
@@ -679,8 +679,19 @@ export function GpsAttendancePage() {
                         </td>
 
                         <td className="py-3 px-4">
-                          <div className="font-bold text-slate-900">
-                            {v.target_type === 'individual' ? v.target_user_name || 'Individual Worker' : `Team: ${v.target_team_name}`}
+                          <div className="font-bold text-slate-900 flex items-center space-x-1.5">
+                            <span>
+                              {v.target_type === 'team'
+                                ? `Team: ${v.target_team_name}`
+                                : v.target_user_name || 'Individual Worker'}
+                            </span>
+                            {v.target_type === 'staff' || v.target_user_role === 'staff' ? (
+                              <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-[9px] font-bold uppercase tracking-wider">Staff</span>
+                            ) : v.target_type === 'team' ? (
+                              <span className="px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded text-[9px] font-bold uppercase tracking-wider">Team</span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[9px] font-bold uppercase tracking-wider">Labourer</span>
+                            )}
                           </div>
                           <div className="text-[10px] text-slate-400 capitalize">{v.target_type} Verification</div>
                         </td>
@@ -877,14 +888,32 @@ export function GpsAttendancePage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setVerifTargetType('individual')}
+                    onClick={() => {
+                      setVerifTargetType('individual');
+                      if (labourers.length > 0) setVerifTargetUserId(labourers[0].id);
+                    }}
                     className={`flex-1 py-2 text-xs font-semibold rounded-xl border cursor-pointer ${
                       verifTargetType === 'individual'
                         ? 'bg-[#0E6037] text-white border-[#0E6037]'
                         : 'bg-slate-50 text-slate-700 border-slate-200'
                     }`}
                   >
-                    Individual Labourer
+                    Labourer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVerifTargetType('staff');
+                      const activeStaff = usersList.filter(u => u.role === 'staff' && u.status === 'active');
+                      if (activeStaff.length > 0) setVerifTargetUserId(activeStaff[0].id);
+                    }}
+                    className={`flex-1 py-2 text-xs font-semibold rounded-xl border cursor-pointer ${
+                      verifTargetType === 'staff'
+                        ? 'bg-[#0E6037] text-white border-[#0E6037]'
+                        : 'bg-slate-50 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    Staff Member
                   </button>
                   <button
                     type="button"
@@ -913,6 +942,23 @@ export function GpsAttendancePage() {
                       sublabel: `+91 ${l.mobile_number || ''} · ${l.team_name || 'No team'}`,
                     }))}
                     placeholder="Choose Labourer"
+                  />
+                </div>
+              ) : verifTargetType === 'staff' ? (
+                <div>
+                  <CustomSelect
+                    label="Select Staff Member"
+                    required
+                    value={verifTargetUserId}
+                    onChange={(val) => setVerifTargetUserId(String(val))}
+                    options={usersList
+                      .filter((u) => u.role === 'staff' && u.status === 'active')
+                      .map((s) => ({
+                        value: s.id,
+                        label: s.full_name,
+                        sublabel: `${s.designation || 'Staff'} · ${s.assigned_location || 'General Site'}`,
+                      }))}
+                    placeholder="Choose Staff Member"
                   />
                 </div>
               ) : (
