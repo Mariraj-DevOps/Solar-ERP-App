@@ -3,18 +3,40 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 
-// Ensure data directory exists
-const dataDir = path.resolve(process.cwd(), 'data');
+// Ensure data directory exists (support Vercel serverless /tmp writable directory)
+const isVercel = Boolean(process.env.VERCEL);
+const dataDir = isVercel ? '/tmp' : path.resolve(process.cwd(), 'data');
 if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+  } catch (err) {
+    // Ignore directory creation error in serverless
+  }
 }
 
-const dbPath = path.join(dataDir, 'erp.db');
+const dbPath = isVercel ? path.join('/tmp', 'erp.db') : path.join(dataDir, 'erp.db');
+
+// If running in Vercel and /tmp/erp.db does not exist yet, copy the bundled seed database
+if (isVercel && !fs.existsSync(dbPath)) {
+  const bundledDb = path.resolve(process.cwd(), 'data', 'erp.db');
+  if (fs.existsSync(bundledDb)) {
+    try {
+      fs.copyFileSync(bundledDb, dbPath);
+    } catch (e) {
+      console.warn('[Vercel] Could not copy bundled DB to /tmp:', e);
+    }
+  }
+}
+
 export const db = new Database(dbPath);
 
-// Enable WAL mode and foreign keys for high reliability and concurrency
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// Enable safe journal mode and foreign keys
+try {
+  db.pragma(isVercel ? 'journal_mode = DELETE' : 'journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+} catch (e) {
+  // Pragma safe fallback
+}
 
 export function initDatabase() {
   db.exec(`

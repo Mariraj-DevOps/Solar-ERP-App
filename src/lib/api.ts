@@ -3,7 +3,14 @@
  * Type-safe API client for Solar ERP frontend
  */
 
-const BASE_URL = '/api';
+const getBaseUrl = () => {
+  const envUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (!envUrl) return '/api';
+  const clean = envUrl.replace(/\/+$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+};
+
+const BASE_URL = getBaseUrl();
 
 export function getToken(): string | null {
   return localStorage.getItem('erp_token');
