@@ -42,6 +42,22 @@ export function LabourerDashboardPage() {
   // Verification countdown states
   const [timeRemaining, setTimeRemaining] = useState<string>('');
 
+  // Track alerted verification request IDs so phone alerts/vibrates strictly ONCE per spot check
+  const alertedVerificationIdsRef = useRef<Set<string>>(new Set());
+
+  // Load alerted IDs from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem('solar_alerted_verif_ids');
+      if (stored) {
+        const arr = JSON.parse(stored);
+        if (Array.isArray(arr)) {
+          arr.forEach((id: string) => alertedVerificationIdsRef.current.add(id));
+        }
+      }
+    } catch {}
+  }, []);
+
   // Fetch data
   const fetchData = async () => {
     try {
@@ -59,17 +75,30 @@ export function LabourerDashboardPage() {
       setWorksites(wsRes || []);
       setTeams(tmsRes || []);
 
-      // Trigger immediate vibration and native notification if spot check is active
+      // Trigger immediate vibration and native notification strictly ONCE per spot verification request
       if (Array.isArray(verifRes) && verifRes.length > 0) {
-        if ((window as any).ReactNativeWebView) {
-          (window as any).ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'LOCAL_NOTIFICATION',
-            title: '🚨 Spot Verification Requested',
-            body: `Dispatched by ${verifRes[0].requested_by_name || 'Supervisor'}. Please confirm your GPS presence within 30 minutes.`,
-          }));
-        }
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          try { navigator.vibrate([400, 200, 400, 200, 600]); } catch (e) {}
+        const latestVerif = verifRes[0];
+        const verifId = latestVerif?.id;
+
+        if (verifId && !alertedVerificationIdsRef.current.has(verifId)) {
+          alertedVerificationIdsRef.current.add(verifId);
+          try {
+            sessionStorage.setItem(
+              'solar_alerted_verif_ids',
+              JSON.stringify(Array.from(alertedVerificationIdsRef.current))
+            );
+          } catch {}
+
+          if ((window as any).ReactNativeWebView) {
+            (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'LOCAL_NOTIFICATION',
+              title: '🚨 Spot Verification Requested',
+              body: `Dispatched by ${latestVerif.requested_by_name || 'Supervisor'}. Please confirm your GPS presence within 30 minutes.`,
+            }));
+          }
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try { navigator.vibrate([400, 200, 400, 200, 600]); } catch (e) {}
+          }
         }
       }
 
@@ -110,9 +139,24 @@ export function LabourerDashboardPage() {
     // Register push token if available in native bridge
     if ((window as any).EXPO_PUSH_TOKEN) {
       api.notifications.registerPushToken((window as any).EXPO_PUSH_TOKEN).catch(() => {});
+    } else if ((window as any).ReactNativeWebView?.postMessage) {
+      try {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'GET_PUSH_TOKEN' }));
+      } catch (e) {}
     }
 
-    return () => clearInterval(interval);
+    const handlePushTokenEvent = (e: any) => {
+      const token = e.detail?.token || (window as any).EXPO_PUSH_TOKEN;
+      if (token) {
+        api.notifications.registerPushToken(token).catch(() => {});
+      }
+    };
+    window.addEventListener('expoPushToken', handlePushTokenEvent);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('expoPushToken', handlePushTokenEvent);
+    };
   }, []);
 
   // Update countdown timer for active verification

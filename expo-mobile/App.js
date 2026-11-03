@@ -115,11 +115,56 @@ export default function App() {
     webViewRef.current.injectJavaScript(script);
   };
 
+  const injectPushToken = (token) => {
+    if (!webViewRef.current || !token) return;
+    const script = `
+      (function() {
+        window.EXPO_PUSH_TOKEN = ${JSON.stringify(token)};
+        try {
+          window.dispatchEvent(new CustomEvent('expoPushToken', { detail: { token: ${JSON.stringify(token)} } }));
+        } catch (e) {}
+        try {
+          window.postMessage(JSON.stringify({ type: 'EXPO_PUSH_TOKEN', token: ${JSON.stringify(token)} }), '*');
+        } catch (e) {}
+      })();
+      true;
+    `;
+    webViewRef.current.injectJavaScript(script);
+  };
+
   // Initialize Push Notifications
   useEffect(() => {
     registerForPushNotificationsAsync().then((t) => {
-      if (t) setExpoPushToken(t);
+      if (t) {
+        setExpoPushToken(t);
+        injectPushToken(t);
+      }
     });
+  }, []);
+
+  // Whenever push token changes or is fetched, inject it into WebView
+  useEffect(() => {
+    if (expoPushToken && webViewRef.current) {
+      injectPushToken(expoPushToken);
+    }
+  }, [expoPushToken]);
+
+  // Handle notification tap to navigate user directly to the relevant screen
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      try {
+        const data = response?.notification?.request?.content?.data;
+        if (data?.link && webViewRef.current) {
+          const path = data.link.startsWith('/') ? data.link : `/${data.link}`;
+          const targetUrl = `https://solar-erp-app.onrender.com${path}`;
+          webViewRef.current.injectJavaScript(`window.location.href = ${JSON.stringify(targetUrl)}; true;`);
+        }
+      } catch (e) {
+        console.warn('Failed to handle notification tap navigation:', e);
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
   // Safety timer: Dismiss loading spinner automatically after 2.5 seconds max
@@ -385,12 +430,24 @@ export default function App() {
                 } else {
                   Alert.alert('Download Complete', `File downloaded successfully.`);
                 }
+              } else if (data.type === 'GET_PUSH_TOKEN') {
+                if (expoPushToken) {
+                  injectPushToken(expoPushToken);
+                } else {
+                  registerForPushNotificationsAsync().then((t) => {
+                    if (t) {
+                      setExpoPushToken(t);
+                      injectPushToken(t);
+                    }
+                  });
+                }
               } else if (data.type === 'LOCAL_NOTIFICATION') {
                 await Notifications.scheduleNotificationAsync({
                   content: {
                     title: data.title || 'Solar ERP Notification',
                     body: data.body || data.message || '',
                     sound: true,
+                    channelId: 'default',
                   },
                   trigger: null,
                 });
@@ -415,13 +472,8 @@ export default function App() {
           onLoadEnd={() => {
             setIsLoading(false);
             syncNativeLocation();
-            if (expoPushToken && webViewRef.current) {
-              const script = `
-                window.EXPO_PUSH_TOKEN = ${JSON.stringify(expoPushToken)};
-                window.postMessage(JSON.stringify({ type: 'EXPO_PUSH_TOKEN', token: ${JSON.stringify(expoPushToken)} }), '*');
-                true;
-              `;
-              webViewRef.current.injectJavaScript(script);
+            if (expoPushToken) {
+              injectPushToken(expoPushToken);
             }
           }}
           onError={(syntheticEvent) => {

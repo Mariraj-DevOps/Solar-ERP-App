@@ -3447,6 +3447,13 @@ apiRouter.post('/notifications/register-token', requireAuth, (req: Request, res:
         updated_at = excluded.updated_at
     `).run(id, req.user!.id, cleanToken, deviceType || 'android', now, now);
 
+    console.log(`[Push Token Registered] user=${req.user!.fullName} (${req.user!.id}), role=${req.user!.role}, token=${cleanToken.substring(0, 24)}...`);
+
+    // Ensure token is persisted to PostgreSQL across Render sleep cycles
+    try {
+      import('./pgSync').then((m) => m.triggerPgSync()).catch(() => {});
+    } catch {}
+
     res.json({ success: true, message: 'Push token registered successfully for user.' });
   } catch (err) {
     console.error('Failed to register push token:', err);

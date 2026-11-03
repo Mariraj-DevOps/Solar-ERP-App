@@ -79,20 +79,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     const registerToken = (pushToken: string) => {
-      if (pushToken && typeof pushToken === 'string') {
-        api.notifications.registerPushToken(pushToken).catch(() => {});
+      if (pushToken && typeof pushToken === 'string' && pushToken.trim()) {
+        const clean = pushToken.trim();
+        (window as any).EXPO_PUSH_TOKEN = clean;
+        try {
+          localStorage.setItem('solar_erp_push_token', clean);
+        } catch {}
+        api.notifications.registerPushToken(clean).catch((err) => {
+          console.warn('Failed to register push token with backend:', err);
+        });
       }
     };
 
+    // Check memory or cached token
     if ((window as any).EXPO_PUSH_TOKEN) {
       registerToken((window as any).EXPO_PUSH_TOKEN);
+    } else {
+      try {
+        const cached = localStorage.getItem('solar_erp_push_token');
+        if (cached) registerToken(cached);
+      } catch {}
     }
+
+    // Request native bridge for push token in case it was resolved asynchronously
+    if ((window as any).ReactNativeWebView?.postMessage) {
+      try {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'GET_PUSH_TOKEN' }));
+      } catch (e) {}
+    }
+
+    const handleCustomEvent = (event: any) => {
+      const token = event.detail?.token;
+      if (token) registerToken(token);
+    };
 
     const handleNativeMessage = (event: MessageEvent) => {
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (data && data.type === 'EXPO_PUSH_TOKEN' && data.token) {
-          (window as any).EXPO_PUSH_TOKEN = data.token;
           registerToken(data.token);
         }
       } catch {
@@ -100,10 +124,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    window.addEventListener('expoPushToken', handleCustomEvent);
     window.addEventListener('message', handleNativeMessage);
     document.addEventListener('message', handleNativeMessage as any);
 
     return () => {
+      window.removeEventListener('expoPushToken', handleCustomEvent);
       window.removeEventListener('message', handleNativeMessage);
       document.removeEventListener('message', handleNativeMessage as any);
     };

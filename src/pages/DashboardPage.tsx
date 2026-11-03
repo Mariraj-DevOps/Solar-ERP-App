@@ -73,6 +73,21 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
   const [staffAttError, setStaffAttError] = useState<string | null>(null);
   const [verifTimeRemaining, setVerifTimeRemaining] = useState<string>('');
 
+  // Track alerted verification request IDs so staff phone alerts strictly ONCE per spot check
+  const alertedSpotChecksRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem('solar_alerted_spot_ids');
+      if (stored) {
+        const arr = JSON.parse(stored);
+        if (Array.isArray(arr)) {
+          arr.forEach((id: string) => alertedSpotChecksRef.current.add(id));
+        }
+      }
+    } catch {}
+  }, []);
+
   const todayKolkata = getTodayKolkataISO();
   const weekBounds = getWeekBounds(currentWeekStart);
 
@@ -102,12 +117,30 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
       setStaffTodayRecord(myTodayGps?.todayRecord || null);
       setActiveVerifications(activeSpotChecks || []);
 
-      if (Array.isArray(activeSpotChecks) && activeSpotChecks.length > 0 && (window as any).ReactNativeWebView) {
-        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'LOCAL_NOTIFICATION',
-          title: '🚨 Attendance Spot Verification Requested',
-          body: `Verification dispatched by ${activeSpotChecks[0].requested_by_name}. Please confirm your physical location.`,
-        }));
+      // Trigger immediate vibration and native notification strictly ONCE per spot verification request
+      if (Array.isArray(activeSpotChecks) && activeSpotChecks.length > 0) {
+        const latestSpot = activeSpotChecks[0];
+        const spotId = latestSpot?.id;
+        if (spotId && !alertedSpotChecksRef.current.has(spotId)) {
+          alertedSpotChecksRef.current.add(spotId);
+          try {
+            sessionStorage.setItem(
+              'solar_alerted_spot_ids',
+              JSON.stringify(Array.from(alertedSpotChecksRef.current))
+            );
+          } catch {}
+
+          if ((window as any).ReactNativeWebView) {
+            (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'LOCAL_NOTIFICATION',
+              title: '🚨 Attendance Spot Verification Requested',
+              body: `Verification dispatched by ${latestSpot.requested_by_name || 'Supervisor'}. Please confirm your physical location.`,
+            }));
+          }
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try { navigator.vibrate([400, 200, 400, 200, 600]); } catch (e) {}
+          }
+        }
       }
 
       if (Array.isArray(worksitesList) && worksitesList.length > 0) {

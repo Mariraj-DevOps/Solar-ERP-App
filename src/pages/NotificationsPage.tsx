@@ -20,6 +20,7 @@ export function NotificationsPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const notifiedIdsRef = React.useRef<Set<string>>(new Set());
 
   const loadNotifications = async () => {
     setIsLoading(true);
@@ -33,11 +34,14 @@ export function NotificationsPage() {
         const unreadList = (res.notifications || []).filter((n: any) => !n.is_read);
         if (unreadList.length > 0) {
           const first = unreadList[0];
-          (window as any).ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'LOCAL_NOTIFICATION',
-            title: first.title || 'Solar ERP Update',
-            body: first.message,
-          }));
+          if (first?.id && !notifiedIdsRef.current.has(first.id)) {
+            notifiedIdsRef.current.add(first.id);
+            (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'LOCAL_NOTIFICATION',
+              title: first.title || 'Solar ERP Update',
+              body: first.message,
+            }));
+          }
         }
       }
     } catch (err: any) {
