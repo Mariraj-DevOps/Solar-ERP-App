@@ -5127,8 +5127,8 @@ apiRouter.get('/gps-attendance/all', requireAuth, requireStaffOrAdmin, (req: Req
   res.json(records);
 });
 
-// PUT /api/gps-attendance/:id/override (Admin Manual Override with Mandatory Reason)
-apiRouter.put('/gps-attendance/:id/override', requireAuth, requireAdmin, (req: Request, res: Response) => {
+// PUT & POST /api/gps-attendance/:id/override (Admin Manual Override with Mandatory Reason)
+const handleGpsAttendanceOverride = (req: Request, res: Response) => {
   const { id } = req.params;
   const { reason, status, payableHours, overtimeHours, notes } = req.body;
   if (!reason || !reason.trim()) {
@@ -5188,10 +5188,13 @@ apiRouter.put('/gps-attendance/:id/override', requireAuth, requireAdmin, (req: R
   });
 
   res.json({ success: true, message: 'Attendance record overridden and updated successfully.' });
-});
+};
 
-// PUT /api/gps-attendance/:id/approve & reject
-apiRouter.put('/gps-attendance/:id/approve', requireAuth, requireStaffOrAdmin, (req: Request, res: Response) => {
+apiRouter.post('/gps-attendance/:id/override', requireAuth, requireAdmin, handleGpsAttendanceOverride);
+apiRouter.put('/gps-attendance/:id/override', requireAuth, requireAdmin, handleGpsAttendanceOverride);
+
+// PUT & POST /api/gps-attendance/:id/approve
+const handleGpsAttendanceApprove = (req: Request, res: Response) => {
   const { id } = req.params;
   const existing = db.prepare('SELECT * FROM labourer_attendance_records WHERE id = ?').get(id) as any;
   if (!existing) {
@@ -5231,9 +5234,13 @@ apiRouter.put('/gps-attendance/:id/approve', requireAuth, requireStaffOrAdmin, (
   });
 
   res.json({ success: true, message: 'Attendance approved.' });
-});
+};
 
-apiRouter.put('/gps-attendance/:id/reject', requireAuth, requireStaffOrAdmin, (req: Request, res: Response) => {
+apiRouter.post('/gps-attendance/:id/approve', requireAuth, requireStaffOrAdmin, handleGpsAttendanceApprove);
+apiRouter.put('/gps-attendance/:id/approve', requireAuth, requireStaffOrAdmin, handleGpsAttendanceApprove);
+
+// PUT & POST /api/gps-attendance/:id/reject
+const handleGpsAttendanceReject = (req: Request, res: Response) => {
   const { id } = req.params;
   const { reason } = req.body;
   if (!reason || !reason.trim()) {
@@ -5276,7 +5283,10 @@ apiRouter.put('/gps-attendance/:id/reject', requireAuth, requireStaffOrAdmin, (r
   });
 
   res.json({ success: true, message: 'Attendance rejected.' });
-});
+};
+
+apiRouter.post('/gps-attendance/:id/reject', requireAuth, requireStaffOrAdmin, handleGpsAttendanceReject);
+apiRouter.put('/gps-attendance/:id/reject', requireAuth, requireStaffOrAdmin, handleGpsAttendanceReject);
 
 // POST /api/gps-attendance/:id/re-request-location (Re-request Location for Outside Radius / Attendance Re-check)
 apiRouter.post('/gps-attendance/:id/re-request-location', requireAuth, requireStaffOrAdmin, (req: Request, res: Response) => {
