@@ -85,6 +85,16 @@ export default function App() {
     });
   }, []);
 
+  // Safety timer: Dismiss loading spinner automatically after 2.5 seconds max
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
+
   // Request native GPS permission upfront so the WebView has access immediately
   useEffect(() => {
     (async () => {
@@ -231,6 +241,12 @@ export default function App() {
             setCanGoBack(navState.canGoBack);
           }}
           onLoadStart={() => setIsLoading(true)}
+          onLoad={() => setIsLoading(false)}
+          onLoadProgress={({ nativeEvent }) => {
+            if (nativeEvent.progress >= 0.5) {
+              setIsLoading(false);
+            }
+          }}
           onLoadEnd={() => {
             setIsLoading(false);
             if (expoPushToken && webViewRef.current) {
@@ -265,13 +281,18 @@ export default function App() {
 
       {/* Floating loading overlay for initial connection */}
       {isLoading && !hasError && (
-        <View style={styles.initialOverlay}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => setIsLoading(false)}
+          style={styles.initialOverlay}
+        >
           <View style={styles.card}>
             <ActivityIndicator size="large" color="#014025" />
             <Text style={styles.brandTitle}>Solar ERP</Text>
             <Text style={styles.loadingSubtext}>Connecting to {serverUrl.replace(/^https?:\/\//, '')}...</Text>
+            <Text style={styles.dismissHint}>Tap anywhere to dismiss</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       )}
     </SafeAreaView>
   );
@@ -400,6 +421,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 4,
+  },
+  dismissHint: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 8,
   },
   errorContainer: {
     flex: 1,
