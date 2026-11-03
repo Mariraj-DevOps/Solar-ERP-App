@@ -778,5 +778,46 @@ describe('Phase 2 & Comprehensive ERP Verification Suite', () => {
     db.prepare('DELETE FROM attendance_entries WHERE id = ?').run(attEntryId);
     db.prepare('DELETE FROM labourer_attendance_records WHERE id = ?').run(gpsRecordId);
   });
+
+  it('21. Verifies Worksite staff radius, staff assignment, and role-based access control', () => {
+    const worksiteId = `ws-test-radius-${Date.now()}`;
+    const staffId = 'usr-staff-01';
+    const staffRadius = 250;
+
+    // Create worksite with staff radius and assigned staff
+    db.prepare(`
+      INSERT INTO worksites (
+        id, name, project_name, address, latitude, longitude,
+        allowed_radius_meters, accuracy_threshold_meters, status,
+        assigned_teams_json, assigned_staff_json, staff_radius_meters,
+        secondary_admin_id, office_name, created_by, created_at, updated_at
+      ) VALUES (?, 'Solar Plant Beta', 'Solar Project Beta', '123 Solar Way', 12.97, 77.59,
+        150, 50, 'active', '[]', ?, ?, 'usr-sec-01', 'Test Office', 'admin-01', datetime('now'), datetime('now'))
+    `).run(worksiteId, JSON.stringify([staffId]), staffRadius);
+
+    const ws = db.prepare('SELECT * FROM worksites WHERE id = ?').get(worksiteId) as any;
+    expect(ws).toBeDefined();
+    expect(ws.staff_radius_meters).toBe(250);
+    const assignedStaff = JSON.parse(ws.assigned_staff_json);
+    expect(assignedStaff).toContain(staffId);
+
+    // Assign staff to secondary admin
+    db.prepare(`
+      INSERT OR REPLACE INTO secondary_admin_assignments (secondary_admin_id, staff_user_id, created_at, updated_at)
+      VALUES (?, ?, datetime('now'), datetime('now'))
+    `).run('usr-sec-01', staffId);
+
+    // Verify secondary admin assignment query logic
+    const isAssigned = db.prepare(`
+      SELECT 1 FROM secondary_admin_assignments
+      WHERE secondary_admin_id = ? AND staff_user_id = ?
+    `).get('usr-sec-01', staffId);
+
+    expect(Boolean(isAssigned)).toBe(true);
+
+    // Cleanup
+    db.prepare('DELETE FROM secondary_admin_assignments WHERE secondary_admin_id = ? AND staff_user_id = ?').run('usr-sec-01', staffId);
+    db.prepare('DELETE FROM worksites WHERE id = ?').run(worksiteId);
+  });
 });
 

@@ -3969,13 +3969,14 @@ apiRouter.get('/worksites', requireAuth, (req: Request, res: Response) => {
   const formatted = worksites.map(ws => ({
     ...ws,
     assignedTeams: JSON.parse(ws.assigned_teams_json || '[]'),
+    assignedStaff: JSON.parse(ws.assigned_staff_json || '[]'),
     pendingRequest: pendingByEntityId.get(ws.id) || null,
   }));
   res.json(formatted);
 });
 
 apiRouter.post('/worksites', requireAuth, requireStaffOrAdmin, (req: Request, res: Response) => {
-  const { name, projectName, address, latitude, longitude, allowedRadiusMeters, accuracyThresholdMeters, assignedTeams, reason, secondaryAdminId, officeName } = req.body;
+  const { name, projectName, address, latitude, longitude, allowedRadiusMeters, accuracyThresholdMeters, assignedTeams, assignedStaff, staffRadiusMeters, reason, secondaryAdminId, officeName } = req.body;
   if (!name || !projectName || latitude === undefined || longitude === undefined) {
     return res.status(400).json({ error: 'Name, project name, latitude, and longitude are required.' });
   }
@@ -3983,8 +3984,10 @@ apiRouter.post('/worksites', requireAuth, requireStaffOrAdmin, (req: Request, re
   const id = `ws-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   const now = new Date().toISOString();
   const radius = Number(allowedRadiusMeters) || 150;
+  const staffRadius = staffRadiusMeters !== undefined ? Number(staffRadiusMeters) : radius;
   const accuracy = Number(accuracyThresholdMeters) || 50;
   const teamsJson = JSON.stringify(Array.isArray(assignedTeams) ? assignedTeams : []);
+  const staffJson = JSON.stringify(Array.isArray(assignedStaff) ? assignedStaff : []);
 
   let targetSecAdminId = 'head_office';
   let targetOfficeName = 'Head Office (Central)';
@@ -4012,9 +4015,9 @@ apiRouter.post('/worksites', requireAuth, requireStaffOrAdmin, (req: Request, re
 
     // Create inactive worksite pending approval
     db.prepare(`
-      INSERT INTO worksites (id, name, project_name, address, latitude, longitude, allowed_radius_meters, accuracy_threshold_meters, status, assigned_teams_json, pending_geofence_request_id, secondary_admin_id, office_name, created_by, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'inactive', ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, name, projectName, address || '', Number(latitude), Number(longitude), radius, accuracy, teamsJson, reqId, targetSecAdminId, targetOfficeName, req.user!.id, now, now);
+      INSERT INTO worksites (id, name, project_name, address, latitude, longitude, allowed_radius_meters, accuracy_threshold_meters, status, assigned_teams_json, assigned_staff_json, staff_radius_meters, pending_geofence_request_id, secondary_admin_id, office_name, created_by, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'inactive', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, name, projectName, address || '', Number(latitude), Number(longitude), radius, accuracy, teamsJson, staffJson, staffRadius, reqId, targetSecAdminId, targetOfficeName, req.user!.id, now, now);
 
     const proposedChanges = {
       name,
@@ -4025,6 +4028,8 @@ apiRouter.post('/worksites', requireAuth, requireStaffOrAdmin, (req: Request, re
       allowedRadiusMeters: radius,
       accuracyThresholdMeters: accuracy,
       assignedTeams: Array.isArray(assignedTeams) ? assignedTeams : [],
+      assignedStaff: Array.isArray(assignedStaff) ? assignedStaff : [],
+      staffRadiusMeters: staffRadius,
       status: 'active',
       isNewWorksite: true,
       secondaryAdminId: targetSecAdminId,
@@ -4086,9 +4091,15 @@ apiRouter.post('/worksites', requireAuth, requireStaffOrAdmin, (req: Request, re
   }
 
   db.prepare(`
-    INSERT INTO worksites (id, name, project_name, address, latitude, longitude, allowed_radius_meters, accuracy_threshold_meters, status, assigned_teams_json, secondary_admin_id, office_name, created_by, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
-  `).run(id, name, projectName, address || '', Number(latitude), Number(longitude), radius, accuracy, teamsJson, targetSecAdminId, targetOfficeName, req.user!.id, now, now);
+    INSERT INTO worksites (id, name, project_name, address, latitude, longitude, allowed_radius_meters, accuracy_threshold_meters, status, assigned_teams_json, assigned_staff_json, staff_radius_meters, secondary_admin_id, office_name, created_by, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, name, projectName, address || '', Number(latitude), Number(longitude), radius, accuracy, teamsJson, staffJson, staffRadius, targetSecAdminId, targetOfficeName, req.user!.id, now, now);
+
+  if (Array.isArray(assignedStaff)) {
+    for (const sId of assignedStaff) {
+      db.prepare('UPDATE users SET assigned_worksite_id = ? WHERE id = ?').run(id, sId);
+    }
+  }
 
   logAudit({
     actorId: req.user!.id,
@@ -4097,7 +4108,7 @@ apiRouter.post('/worksites', requireAuth, requireStaffOrAdmin, (req: Request, re
     action: 'CREATE_WORKSITE',
     entityType: 'worksites',
     entityId: id,
-    newValues: { name, projectName, latitude, longitude, radius, accuracy, secondaryAdminId: targetSecAdminId, officeName: targetOfficeName },
+    newValues: { name, projectName, latitude, longitude, radius, accuracy, secondaryAdminId: targetSecAdminId, officeName: targetOfficeName, assignedStaff },
   });
 
   res.status(201).json({ id, message: 'Worksite created successfully.' });
@@ -4110,7 +4121,7 @@ apiRouter.put('/worksites/:id', requireAuth, requireStaffOrAdmin, (req: Request,
     return res.status(404).json({ error: 'Worksite not found.' });
   }
 
-  const { name, projectName, address, latitude, longitude, allowedRadiusMeters, accuracyThresholdMeters, status, assignedTeams, reason, secondaryAdminId, officeName } = req.body;
+  const { name, projectName, address, latitude, longitude, allowedRadiusMeters, accuracyThresholdMeters, status, assignedTeams, assignedStaff, staffRadiusMeters, reason, secondaryAdminId, officeName } = req.body;
   const now = new Date().toISOString();
 
   let targetSecAdminId: string | null = null;
@@ -4122,6 +4133,20 @@ apiRouter.put('/worksites/:id', requireAuth, requireStaffOrAdmin, (req: Request,
     } else {
       const u = db.prepare('SELECT full_name, assigned_location FROM users WHERE id = ?').get(secondaryAdminId) as any;
       targetOfficeName = officeName || (u?.assigned_location ? `${u.assigned_location} Office (${u.full_name})` : u?.full_name ? `${u.full_name} Office` : 'Branch Office');
+    }
+  }
+
+  // If secondary admin, ensure they can only edit worksites for their branch and assign their assigned staff
+  if (isSecondaryAdmin(req.user)) {
+    if (existing.secondary_admin_id && existing.secondary_admin_id !== req.user!.id && existing.secondary_admin_id !== 'head_office') {
+      return res.status(403).json({ error: 'You can only edit worksites belonging to your branch.' });
+    }
+    if (Array.isArray(assignedStaff)) {
+      for (const sId of assignedStaff) {
+        if (!canAccessStaff(req.user!, sId)) {
+          return res.status(403).json({ error: 'You can only assign staff members assigned to your office.' });
+        }
+      }
     }
   }
 
@@ -4154,6 +4179,8 @@ apiRouter.put('/worksites/:id', requireAuth, requireStaffOrAdmin, (req: Request,
       accuracyThresholdMeters: reqAcc,
       status: status !== undefined ? status : existing.status,
       assignedTeams: assignedTeams !== undefined ? assignedTeams : JSON.parse(existing.assigned_teams_json || '[]'),
+      assignedStaff: assignedStaff !== undefined ? assignedStaff : JSON.parse(existing.assigned_staff_json || '[]'),
+      staffRadiusMeters: staffRadiusMeters !== undefined ? Number(staffRadiusMeters) : (existing.staff_radius_meters || reqRad),
     };
 
     db.prepare(`
@@ -4223,6 +4250,8 @@ apiRouter.put('/worksites/:id', requireAuth, requireStaffOrAdmin, (req: Request,
       accuracy_threshold_meters = COALESCE(?, accuracy_threshold_meters),
       status = COALESCE(?, status),
       assigned_teams_json = COALESCE(?, assigned_teams_json),
+      assigned_staff_json = COALESCE(?, assigned_staff_json),
+      staff_radius_meters = COALESCE(?, staff_radius_meters),
       secondary_admin_id = COALESCE(?, secondary_admin_id),
       office_name = COALESCE(?, office_name),
       updated_by = ?,
@@ -4238,12 +4267,21 @@ apiRouter.put('/worksites/:id', requireAuth, requireStaffOrAdmin, (req: Request,
     accuracyThresholdMeters !== undefined ? Number(accuracyThresholdMeters) : null,
     status,
     assignedTeams ? JSON.stringify(assignedTeams) : null,
+    assignedStaff ? JSON.stringify(assignedStaff) : null,
+    staffRadiusMeters !== undefined ? Number(staffRadiusMeters) : null,
     targetSecAdminId,
     targetOfficeName,
     req.user!.id,
     now,
     id
   );
+
+  if (Array.isArray(assignedStaff)) {
+    db.prepare('UPDATE users SET assigned_worksite_id = NULL WHERE assigned_worksite_id = ?').run(id);
+    for (const sId of assignedStaff) {
+      db.prepare('UPDATE users SET assigned_worksite_id = ? WHERE id = ?').run(id, sId);
+    }
+  }
 
   logAudit({
     actorId: req.user!.id,
@@ -5079,8 +5117,12 @@ apiRouter.get('/gps-attendance/all', requireAuth, requireStaffOrAdmin, (req: Req
   const params: any[] = [];
 
   if (isSecondaryAdmin(req.user)) {
-    query += ` AND (r.supervisor_id = ? OR r.user_id IN (SELECT staff_user_id FROM secondary_admin_assignments WHERE secondary_admin_id = ?))`;
-    params.push(req.user!.id, req.user!.id);
+    query += ` AND (
+      r.user_id IN (SELECT staff_user_id FROM secondary_admin_assignments WHERE secondary_admin_id = ?)
+      OR r.supervisor_id IN (SELECT staff_user_id FROM secondary_admin_assignments WHERE secondary_admin_id = ?)
+      OR r.supervisor_id = ?
+    )`;
+    params.push(req.user!.id, req.user!.id, req.user!.id);
   } else if (!isAdminAny(req.user)) {
     // Staff: see only their assigned labourers/records
     query += ` AND (r.supervisor_id = ? OR r.user_id = ?)`;
@@ -5138,6 +5180,15 @@ const handleGpsAttendanceOverride = (req: Request, res: Response) => {
   const existing = db.prepare('SELECT * FROM labourer_attendance_records WHERE id = ?').get(id) as any;
   if (!existing) {
     return res.status(404).json({ error: 'Attendance record not found.' });
+  }
+
+  // Role check: Secondary Admin can ONLY override records for staff assigned to them
+  if (isSecondaryAdmin(req.user)) {
+    const isOwnerAssigned = canAccessStaff(req.user!, existing.user_id);
+    const isSupervisorAssigned = existing.supervisor_id ? canAccessStaff(req.user!, existing.supervisor_id) : false;
+    if (!isOwnerAssigned && !isSupervisorAssigned) {
+      return res.status(403).json({ error: 'You are only authorized to override attendance for staff assigned to your branch office.' });
+    }
   }
 
   const now = new Date().toISOString();
@@ -5201,6 +5252,15 @@ const handleGpsAttendanceApprove = (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Attendance record not found.' });
   }
 
+  // Role check: Secondary Admin can ONLY approve records for staff assigned to them
+  if (isSecondaryAdmin(req.user)) {
+    const isOwnerAssigned = canAccessStaff(req.user!, existing.user_id);
+    const isSupervisorAssigned = existing.supervisor_id ? canAccessStaff(req.user!, existing.supervisor_id) : false;
+    if (!isOwnerAssigned && !isSupervisorAssigned) {
+      return res.status(403).json({ error: 'You are only authorized to review and approve attendance for staff assigned to your branch office.' });
+    }
+  }
+
   // STRICT RULE: No self-approval!
   if (existing.user_id === req.user!.id) {
     return res.status(403).json({ error: 'Self-approval is strictly forbidden. Your designated attendance supervisor must review and approve your submission.' });
@@ -5252,6 +5312,15 @@ const handleGpsAttendanceReject = (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Attendance record not found.' });
   }
 
+  // Role check: Secondary Admin can ONLY reject records for staff assigned to them
+  if (isSecondaryAdmin(req.user)) {
+    const isOwnerAssigned = canAccessStaff(req.user!, existing.user_id);
+    const isSupervisorAssigned = existing.supervisor_id ? canAccessStaff(req.user!, existing.supervisor_id) : false;
+    if (!isOwnerAssigned && !isSupervisorAssigned) {
+      return res.status(403).json({ error: 'You are only authorized to reject attendance for staff assigned to your branch office.' });
+    }
+  }
+
   if (existing.user_id === req.user!.id) {
     return res.status(403).json({ error: 'You cannot reject your own record.' });
   }
@@ -5295,6 +5364,15 @@ apiRouter.post('/gps-attendance/:id/re-request-location', requireAuth, requireSt
   const existing = db.prepare('SELECT * FROM labourer_attendance_records WHERE id = ?').get(id) as any;
   if (!existing) {
     return res.status(404).json({ error: 'Attendance record not found.' });
+  }
+
+  // Role check: Secondary Admin can ONLY override records for staff assigned to them
+  if (isSecondaryAdmin(req.user)) {
+    const isOwnerAssigned = canAccessStaff(req.user!, existing.user_id);
+    const isSupervisorAssigned = existing.supervisor_id ? canAccessStaff(req.user!, existing.supervisor_id) : false;
+    if (!isOwnerAssigned && !isSupervisorAssigned) {
+      return res.status(403).json({ error: 'You are only authorized to override attendance for staff assigned to your branch office.' });
+    }
   }
 
   const now = new Date();

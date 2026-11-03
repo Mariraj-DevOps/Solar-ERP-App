@@ -82,13 +82,16 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
     try {
       const todayDate = new Date();
       const auditPromise = isAdminAny ? api.audit.list({ limit: 6 }).catch(() => []) : Promise.resolve([]);
+      const isStaffUser = user?.role === 'staff';
+      const gpsTodayPromise = isStaffUser ? api.gpsAttendance.getToday().catch(() => null) : Promise.resolve(null);
+      const activeSpotPromise = isStaffUser ? api.verifications.getActive().catch(() => []) : Promise.resolve([]);
       const [weekly, todayAtt, auditLogs, monthly, myTodayGps, activeSpotChecks, worksitesList] = await Promise.all([
         api.reports.getWeekly(currentWeekStart),
         api.attendance.list({ date: todayKolkata }),
         auditPromise,
         api.reports.getMonthly(todayDate.getFullYear(), todayDate.getMonth() + 1),
-        api.gpsAttendance.getToday().catch(() => null),
-        api.verifications.getActive().catch(() => []),
+        gpsTodayPromise,
+        activeSpotPromise,
         api.worksites.list().catch(() => []),
       ]);
 
@@ -405,8 +408,8 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
         )}
       </div>
 
-      {/* 30-Minute Random Spot Verification Alert Banner (If Dispatched to Current User) */}
-      {activeVerifications.length > 0 && (
+      {/* 30-Minute Random Spot Verification Alert Banner (Staff Only - Dispatched to Current User) */}
+      {user?.role === 'staff' && activeVerifications.length > 0 && (
         <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-white rounded-2xl p-4 sm:p-5 shadow-lg border-2 border-amber-400 animate-pulse-subtle">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-start space-x-3">
@@ -437,8 +440,8 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
         </div>
       )}
 
-      {/* Staff Daily Attendance & Worksite Geofence Widget */}
-      {(() => {
+      {/* Staff Daily Attendance & Worksite Geofence Widget (Staff Only - Excluded for Master Admin & Secondary Admins) */}
+      {user?.role === 'staff' && (() => {
         const isCheckedIn = Boolean(staffTodayRecord?.check_in_time && !staffTodayRecord?.check_out_time);
         const isCheckedOut = Boolean(staffTodayRecord?.check_out_time);
         const siteLat = assignedWorksite?.latitude || 12.9715987;

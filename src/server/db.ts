@@ -615,6 +615,8 @@ function applyMigrations() {
   tryAddCol('office_ledger_entries', 'office_name TEXT');
   tryAddCol('worksites', "secondary_admin_id TEXT DEFAULT 'head_office'");
   tryAddCol('worksites', "office_name TEXT DEFAULT 'Head Office (Central)'");
+  tryAddCol('worksites', "assigned_staff_json TEXT DEFAULT '[]'");
+  tryAddCol('worksites', 'staff_radius_meters REAL DEFAULT NULL');
 
   try {
     db.prepare("UPDATE petty_cash_entries SET secondary_admin_id = 'head_office', office_name = 'Head Office (Central)' WHERE secondary_admin_id IS NULL").run();
