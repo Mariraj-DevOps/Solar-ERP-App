@@ -838,6 +838,25 @@ export function LabourersManagementPage() {
                 </div>
 
                 <div>
+                  <CustomSelect
+                    label="Labour Category"
+                    value={regForm.labourCategoryId}
+                    onChange={(val) => setRegForm({ ...regForm, labourCategoryId: String(val) })}
+                    options={[
+                      { value: '', label: 'Select Category' },
+                      ...categories.map((c) => ({
+                        value: c.id,
+                        label: c.name,
+                        sublabel: c.code ? `Code: ${c.code}` : undefined,
+                      })),
+                    ]}
+                    placeholder="Select Category"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">Designation</label>
                   <input
                     type="text"
@@ -1065,54 +1084,100 @@ export function LabourersManagementPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Assigned Team</label>
-                  <select
+                  <CustomSelect
+                    label="Assigned Team"
                     value={editForm.assignedTeamId}
-                    onChange={(e) => setEditForm({ ...editForm, assignedTeamId: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037]"
-                  >
-                    <option value="">Unassigned</option>
-                    {teams.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => {
+                      const tId = String(val);
+                      const selTeam = teams.find((t) => t.id === tId);
+                      setEditForm({
+                        ...editForm,
+                        assignedTeamId: tId,
+                        assignedWorksiteId: selTeam?.assigned_worksite_id || editForm.assignedWorksiteId,
+                      });
+                    }}
+                    options={[
+                      { value: '', label: 'Unassigned' },
+                      ...teams.map((t) => ({ value: t.id, label: t.name, sublabel: t.work_category })),
+                    ]}
+                    placeholder="Select Team"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Assigned Worksite</label>
-                  <select
+                  <CustomSelect
+                    label="Assigned Worksite"
                     value={editForm.assignedWorksiteId}
-                    onChange={(e) => setEditForm({ ...editForm, assignedWorksiteId: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037]"
-                  >
-                    <option value="">Unassigned</option>
-                    {worksites.map((ws) => (
-                      <option key={ws.id} value={ws.id}>
-                        {ws.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setEditForm({ ...editForm, assignedWorksiteId: String(val) })}
+                    options={[
+                      { value: '', label: 'Unassigned' },
+                      ...worksites.map((ws) => ({
+                        value: ws.id,
+                        label: ws.name,
+                        sublabel: `${ws.radius_meters || 150}m geofence`,
+                      })),
+                    ]}
+                    placeholder="Select Worksite"
+                  />
+                </div>
+
+                {/* Map Preview of Assigned Geofence Range */}
+                <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold text-[#0E6037]">
+                    <span className="flex items-center space-x-1.5">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>Assigned Worksite GPS Geofence Perimeter</span>
+                    </span>
+                    <span className="text-[11px] font-normal text-slate-500">
+                      Radius: {worksites.find((w) => w.id === editForm.assignedWorksiteId)?.radius_meters || 150}m
+                    </span>
+                  </div>
+                  <MapLocationPicker
+                    latitude={worksites.find((w) => w.id === editForm.assignedWorksiteId)?.latitude || teams.find((t) => t.id === editForm.assignedTeamId)?.site_latitude || 12.9715987}
+                    longitude={worksites.find((w) => w.id === editForm.assignedWorksiteId)?.longitude || teams.find((t) => t.id === editForm.assignedTeamId)?.site_longitude || 77.5945627}
+                    radiusMeters={worksites.find((w) => w.id === editForm.assignedWorksiteId)?.radius_meters || teams.find((t) => t.id === editForm.assignedTeamId)?.geofence_radius_meters || 150}
+                    readOnly={true}
+                    showControls={false}
+                    height="160px"
+                    label="Assigned Attendance Perimeter"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Supervisor</label>
-                  <select
+                  <CustomSelect
+                    label="Attendance Supervisor"
                     value={editForm.assignedSupervisorId}
-                    onChange={(e) => setEditForm({ ...editForm, assignedSupervisorId: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037]"
-                  >
-                    <option value="">Select Supervisor</option>
-                    {supervisors.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.full_name} ({s.role})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setEditForm({ ...editForm, assignedSupervisorId: String(val) })}
+                    options={[
+                      { value: '', label: 'Select Supervisor' },
+                      ...supervisors.map((s) => ({
+                        value: s.id,
+                        label: s.full_name,
+                        sublabel: s.role,
+                      })),
+                    ]}
+                    placeholder="Select Supervisor"
+                  />
                 </div>
 
                 <div>
+                  <CustomSelect
+                    label="Labour Category"
+                    value={editForm.labourCategoryId}
+                    onChange={(val) => setEditForm({ ...editForm, labourCategoryId: String(val) })}
+                    options={[
+                      { value: '', label: 'Select Category' },
+                      ...categories.map((c) => ({
+                        value: c.id,
+                        label: c.name,
+                        sublabel: c.code ? `Code: ${c.code}` : undefined,
+                      })),
+                    ]}
+                    placeholder="Select Category"
+                  />
+                </div>
+
+                <div className="col-span-2">
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Designation</label>
                   <input
                     type="text"
@@ -1146,16 +1211,18 @@ export function LabourersManagementPage() {
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Login Method</label>
-                  <select
+                  <CustomSelect
+                    label="Login Method"
                     value={editForm.loginMethod}
-                    onChange={(e) => setEditForm({ ...editForm, loginMethod: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037]"
-                  >
-                    <option value="both">Both (Password &amp; Face Recognition)</option>
-                    <option value="mobile_password">Mobile &amp; Password Only</option>
-                    <option value="face_only">Face Recognition Only</option>
-                  </select>
+                    onChange={(val) => setEditForm({ ...editForm, loginMethod: String(val) })}
+                    options={[
+                      { value: 'both', label: 'Both (Password & Face Recognition)', sublabel: 'Allows both password and biometric/OTP check-in' },
+                      { value: 'mobile_password', label: 'Mobile & Password Only', sublabel: 'Sign in with registered mobile and password' },
+                      { value: 'face_only', label: 'Face Recognition Only', sublabel: 'Biometric / facial check-in only' },
+                      { value: 'otp', label: 'Mobile OTP Only', sublabel: 'One-time password sent to worker phone' },
+                    ]}
+                    placeholder="Select Login Method"
+                  />
                 </div>
               </div>
 
