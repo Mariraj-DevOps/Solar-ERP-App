@@ -137,6 +137,18 @@ export async function restoreFromPostgres(): Promise<boolean> {
         });
 
         insertMany(pgRes.rows);
+
+        // Reconcile: delete local SQLite rows that no longer exist in cloud PostgreSQL
+        try {
+          const pgIds = new Set(pgRes.rows.map(r => String(r[t.pk])));
+          const localRows = db.prepare(`SELECT "${t.pk}" FROM "${t.name}"`).all() as any[];
+          for (const lr of localRows) {
+            if (!pgIds.has(String(lr[t.pk]))) {
+              db.prepare(`DELETE FROM "${t.name}" WHERE "${t.pk}" = ?`).run(lr[t.pk]);
+            }
+          }
+        } catch {}
+
         console.log(`[Postgres Sync] Restored ${pgRes.rows.length} rows for table "${t.name}"`);
       } catch (err) {
         console.warn(`[Postgres Sync] Failed to restore table ${t.name}:`, err);

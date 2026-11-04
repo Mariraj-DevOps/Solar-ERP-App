@@ -41,6 +41,7 @@ export function LabourerDashboardPage() {
 
   // Verification countdown states
   const [timeRemaining, setTimeRemaining] = useState<string>('');
+  const [showSpotModal, setShowSpotModal] = useState(false);
 
   // Track alerted verification request IDs so phone alerts/vibrates strictly ONCE per spot check
   const alertedVerificationIdsRef = useRef<Set<string>>(new Set());
@@ -196,6 +197,22 @@ export function LabourerDashboardPage() {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, [activeVerifications]);
+
+  // Synchronize modal presentation with active verification
+  useEffect(() => {
+    if (activeVerifications.length > 0) {
+      const activeId = activeVerifications[0]?.id;
+      let dismissed = false;
+      try {
+        dismissed = sessionStorage.getItem(`solar_dismissed_spot_${activeId}`) === 'true';
+      } catch {}
+      if (!dismissed) {
+        setShowSpotModal(true);
+      }
+    } else {
+      setShowSpotModal(false);
+    }
   }, [activeVerifications]);
 
 // Calculate Haversine distance in meters between two lat/lng points
@@ -752,6 +769,63 @@ function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: n
       <footer className="p-3 bg-white border-t border-slate-200 text-center text-[11px] text-slate-400">
         Connected to Lumia Infrastructure ERP • Sat-Fri Weekly Cycle
       </footer>
+
+      {/* 🚨 High-Priority Custom Spot Verification Modal Dialog */}
+      {showSpotModal && activeVerifications.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-amber-400 text-center relative overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Top decorative gradient bar */}
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600" />
+
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-amber-500/30">
+              <ShieldAlert className="w-9 h-9 animate-pulse" />
+            </div>
+
+            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 font-mono text-xs font-bold mb-2">
+              <Clock className="w-3.5 h-3.5 text-amber-700" />
+              <span>Expires in: {timeRemaining || '30m 00s'}</span>
+            </div>
+
+            <h3 className="text-base font-black text-slate-900 tracking-tight">
+              Spot Verification Requested
+            </h3>
+
+            <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+              Dispatched by <strong className="text-slate-900">{activeVerifications[0].requested_by_name || 'Supervisor'}</strong>. Please confirm your GPS presence at your assigned worksite within 30 minutes.
+            </p>
+
+            <div className="mt-5 space-y-2">
+              <button
+                type="button"
+                disabled={isLocating}
+                onClick={async () => {
+                  await handleVerifyAttendance(activeVerifications[0].id);
+                  setShowSpotModal(false);
+                }}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-[#0E6037] to-[#127a46] hover:from-[#0c522f] hover:to-[#0E6037] active:scale-[0.98] text-white font-bold rounded-2xl text-xs shadow-lg shadow-emerald-900/20 flex items-center justify-center space-x-2 transition-all cursor-pointer"
+              >
+                <Navigation className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
+                <span>{isLocating ? 'Capturing GPS Fix...' : '📍 Confirm My Location & Attendance'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSpotModal(false);
+                  if (activeVerifications[0]?.id) {
+                    try {
+                      sessionStorage.setItem(`solar_dismissed_spot_${activeVerifications[0].id}`, 'true');
+                    } catch {}
+                  }
+                }}
+                className="w-full py-2 px-4 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Dismiss & View Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

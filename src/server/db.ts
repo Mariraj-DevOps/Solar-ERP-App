@@ -885,6 +885,11 @@ function seedInitialData() {
       );
     }
 
+  // Clean up any stray test-generated duplicate worksites from automated test suites
+  try {
+    db.prepare("DELETE FROM worksites WHERE id LIKE 'ws-test-%' OR name LIKE '%Solar Plant Beta%'").run();
+  } catch {}
+
   // Seed sample worksites if empty
   const worksiteCount = db.prepare('SELECT COUNT(*) as count FROM worksites').get() as { count: number };
   if (worksiteCount.count === 0) {

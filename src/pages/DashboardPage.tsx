@@ -72,6 +72,7 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
   const [staffAttSuccess, setStaffAttSuccess] = useState<string | null>(null);
   const [staffAttError, setStaffAttError] = useState<string | null>(null);
   const [verifTimeRemaining, setVerifTimeRemaining] = useState<string>('');
+  const [showStaffSpotModal, setShowStaffSpotModal] = useState(false);
 
   // Track alerted verification request IDs so staff phone alerts strictly ONCE per spot check
   const alertedSpotChecksRef = useRef<Set<string>>(new Set());
@@ -251,6 +252,21 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
     }, 1000);
 
     return () => clearInterval(interval);
+  }, [activeVerifications]);
+
+  useEffect(() => {
+    if (activeVerifications.length > 0) {
+      const activeId = activeVerifications[0]?.id;
+      let dismissed = false;
+      try {
+        dismissed = sessionStorage.getItem(`solar_dismissed_spot_${activeId}`) === 'true';
+      } catch {}
+      if (!dismissed) {
+        setShowStaffSpotModal(true);
+      }
+    } else {
+      setShowStaffSpotModal(false);
+    }
   }, [activeVerifications]);
 
   const handleStaffCheckIn = async () => {
@@ -816,6 +832,62 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
           </div>
         )}
       </div>
+
+      {/* 🚨 High-Priority Staff Spot Verification Modal Dialog */}
+      {showStaffSpotModal && activeVerifications.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-amber-400 text-center relative overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600" />
+
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-amber-500/30">
+              <ShieldAlert className="w-9 h-9 animate-pulse" />
+            </div>
+
+            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 font-mono text-xs font-bold mb-2">
+              <Clock className="w-3.5 h-3.5 text-amber-700" />
+              <span>Expires in: {verifTimeRemaining || '30m 00s'}</span>
+            </div>
+
+            <h3 className="text-base font-black text-slate-900 tracking-tight">
+              Attendance Verification Requested
+            </h3>
+
+            <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+              Dispatched by <strong className="text-slate-900">{activeVerifications[0].requested_by_name || 'Admin'}</strong>. Please confirm your physical location within 30 minutes.
+            </p>
+
+            <div className="mt-5 space-y-2">
+              <button
+                type="button"
+                disabled={isSubmittingAttendance}
+                onClick={async () => {
+                  await handleStaffCheckIn();
+                  setShowStaffSpotModal(false);
+                }}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-[#0E6037] to-[#127a46] hover:from-[#0c522f] hover:to-[#0E6037] active:scale-[0.98] text-white font-bold rounded-2xl text-xs shadow-lg shadow-emerald-900/20 flex items-center justify-center space-x-2 transition-all cursor-pointer"
+              >
+                <Navigation className={`w-4 h-4 ${isSubmittingAttendance ? 'animate-spin' : ''}`} />
+                <span>{isSubmittingAttendance ? 'Capturing Location...' : '📍 Confirm Physical Presence'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowStaffSpotModal(false);
+                  if (activeVerifications[0]?.id) {
+                    try {
+                      sessionStorage.setItem(`solar_dismissed_spot_${activeVerifications[0].id}`, 'true');
+                    } catch {}
+                  }
+                }}
+                className="w-full py-2 px-4 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Dismiss & View Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
