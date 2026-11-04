@@ -3,7 +3,6 @@ import {
   Settings,
   Building,
   Clock,
-  Wallet,
   Database,
   ShieldCheck,
   Save,
@@ -39,12 +38,6 @@ export function SettingsPage() {
     overtimeRatePerHour: 150,
   });
 
-  const [pettyCashOpening, setPettyCashOpening] = useState({
-    openingInAccount: 75000,
-    openingInHand: 25000,
-    asOfDate: '2026-10-01',
-  });
-
   const [systemStats, setSystemStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -70,9 +63,6 @@ export function SettingsPage() {
       }
       if (settingsData.time_rules) {
         setTimeRules((prev) => ({ ...prev, ...settingsData.time_rules }));
-      }
-      if (settingsData.petty_cash_opening) {
-        setPettyCashOpening((prev) => ({ ...prev, ...settingsData.petty_cash_opening }));
       }
       setSystemStats(statsData);
     } catch (err: any) {
@@ -109,22 +99,6 @@ export function SettingsPage() {
       setSuccessMsg('Time & Overtime calculation rules updated successfully.');
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to update time rules.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSavePettyCash = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isMasterAdmin) return;
-    setIsSaving(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    try {
-      await api.settings.save('petty_cash_opening', pettyCashOpening);
-      setSuccessMsg('Petty cash opening balances saved.');
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to update petty cash opening balance.');
     } finally {
       setIsSaving(false);
     }
@@ -373,76 +347,7 @@ export function SettingsPage() {
           </form>
         </div>
 
-        {/* 3. Petty Cash Opening Balances */}
-        <div className="bg-white rounded-xl border border-[#456B5A]/20 shadow-xs p-5 space-y-4">
-          <div className="flex items-center space-x-2.5 border-b border-[#456B5A]/15 pb-3">
-            <div className="p-2 bg-[#456B5A]/10 rounded-lg text-[#3B5E4F]">
-              <Wallet className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-[#014025]">Petty Cash Opening Balances</h2>
-              <p className="text-[11px] text-[#696969]">Excel software benchmark initial opening amounts</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSavePettyCash} className="space-y-3.5 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[#696969] font-medium mb-1">Opening Cash In Account</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-[#696969] font-semibold">₹</span>
-                  <input
-                    type="number"
-                    disabled={!isMasterAdmin}
-                    value={pettyCashOpening.openingInAccount}
-                    onChange={(e) => setPettyCashOpening({ ...pettyCashOpening, openingInAccount: Number(e.target.value) })}
-                    className="w-full pl-7 pr-3 py-2 border border-[#456B5A]/30 rounded-lg text-[#014025] font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-[#456B5A] disabled:bg-slate-50"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[#696969] font-medium mb-1">Opening Cash In Hand</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-[#696969] font-semibold">₹</span>
-                  <input
-                    type="number"
-                    disabled={!isMasterAdmin}
-                    value={pettyCashOpening.openingInHand}
-                    onChange={(e) => setPettyCashOpening({ ...pettyCashOpening, openingInHand: Number(e.target.value) })}
-                    className="w-full pl-7 pr-3 py-2 border border-[#456B5A]/30 rounded-lg text-[#014025] font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-[#456B5A] disabled:bg-slate-50"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[#696969] font-medium mb-1">Effective Opening Date</label>
-              <input
-                type="date"
-                disabled={!isMasterAdmin}
-                value={pettyCashOpening.asOfDate}
-                onChange={(e) => setPettyCashOpening({ ...pettyCashOpening, asOfDate: e.target.value })}
-                className="w-full px-3 py-2 border border-[#456B5A]/30 rounded-lg text-[#014025] font-mono focus:outline-none focus:ring-1 focus:ring-[#456B5A] disabled:bg-slate-50"
-              />
-            </div>
-
-            {isMasterAdmin && (
-              <div className="pt-2 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#014025] hover:bg-[#014025]/90 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Save Opening Balances</span>
-                </button>
-              </div>
-            )}
-          </form>
-        </div>
-
-        {/* 4. System Diagnostics & Storage Health */}
+        {/* 3. System Diagnostics & Storage Health */}
         <div className="bg-white rounded-xl border border-[#456B5A]/20 shadow-xs p-5 space-y-4">
           <div className="flex items-center space-x-2.5 border-b border-[#456B5A]/15 pb-3">
             <div className="p-2 bg-[#456B5A]/10 rounded-lg text-[#3B5E4F]">

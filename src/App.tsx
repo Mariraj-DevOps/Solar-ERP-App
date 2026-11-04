@@ -16,8 +16,6 @@ import { AdditionalChargesPage } from './pages/AdditionalChargesPage';
 import { AdvancesDeductionsPage } from './pages/AdvancesDeductionsPage';
 import { StaffManagementPage } from './pages/StaffManagementPage';
 import { SecondaryAdminPage } from './pages/SecondaryAdminPage';
-import { OfficeAccountsPage } from './pages/OfficeAccountsPage';
-import { PettyCashPage } from './pages/PettyCashPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { AuditHistoryPage } from './pages/AuditHistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -101,8 +99,6 @@ function ERPContent() {
         {currentTab === 'attachments' && <AttachmentsPage />}
         {currentTab === 'charges' && <AdditionalChargesPage />}
         {currentTab === 'adjustments' && <AdvancesDeductionsPage />}
-        {currentTab === 'office-accounts' && <OfficeAccountsPage />}
-        {currentTab === 'petty-cash' && <PettyCashPage />}
         {currentTab === 'staff' && <StaffManagementPage />}
         {currentTab === 'secondary-admins' && <SecondaryAdminPage />}
         {currentTab === 'notifications' && <NotificationsPage />}

@@ -37,7 +37,7 @@ export function SecondaryAdminPage() {
   const [canApproveAttendance, setCanApproveAttendance] = useState(true);
   const [canEditAttendance, setCanEditAttendance] = useState(true);
   const [canEditFinance, setCanEditFinance] = useState(false);
-  const [allowedModules, setAllowedModules] = useState<string[]>(['weekly_payments', 'petty_cash']);
+  const [allowedModules, setAllowedModules] = useState<string[]>(['weekly_payments']);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadData = async () => {
@@ -71,7 +71,7 @@ export function SecondaryAdminPage() {
     setCanApproveAttendance(true);
     setCanEditAttendance(true);
     setCanEditFinance(false);
-    setAllowedModules(['weekly_payments', 'petty_cash']);
+    setAllowedModules(['weekly_payments']);
     setModalOpen(true);
   };
 
@@ -82,7 +82,9 @@ export function SecondaryAdminPage() {
     setCanApproveAttendance(Boolean(assign.can_approve_attendance));
     setCanEditAttendance(Boolean(assign.can_edit_attendance));
     setCanEditFinance(Boolean(assign.can_edit_finance));
-    setAllowedModules(assign.allowedFinancialModules || ['weekly_payments', 'petty_cash']);
+    const loadedModules = (assign.allowedFinancialModules || ['weekly_payments'])
+      .filter((m: string) => m !== 'petty_cash' && m !== 'office_ledger');
+    setAllowedModules(loadedModules.length > 0 ? loadedModules : ['weekly_payments']);
     setEditingAssignment(assign);
     setModalOpen(true);
   };
@@ -165,7 +167,7 @@ export function SecondaryAdminPage() {
             Secondary Admin Permissions Matrix
           </h1>
           <p className="text-xs sm:text-sm text-[#696969] mt-0.5">
-            Configure managed staff, approval scopes, and permitted financial ledgers per Secondary Admin
+            Configure managed staff, approval scopes, and payment tracker access per Secondary Admin
           </p>
         </div>
 
@@ -249,8 +251,7 @@ export function SecondaryAdminPage() {
                           <th className="py-2.5 px-3 text-center">View Reports</th>
                           <th className="py-2.5 px-3 text-center">Approve Attendance</th>
                           <th className="py-2.5 px-3 text-center">Edit Attendance</th>
-                          <th className="py-2.5 px-3">Permitted Financial Modules</th>
-                          <th className="py-2.5 px-3 text-center">Edit Finance</th>
+                          <th className="py-2.5 px-3 text-center">Payment Tracker</th>
                           <th className="py-2.5 px-2 text-center w-16">Actions</th>
                         </tr>
                       </thead>
@@ -282,23 +283,11 @@ export function SecondaryAdminPage() {
                                 <span className="text-[#696969]">-</span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3">
-                              <div className="flex flex-wrap gap-1">
-                                {assign.allowedFinancialModules?.map((m: string) => (
-                                  <span
-                                    key={m}
-                                    className="px-1.5 py-0.5 rounded bg-[#456B5A]/15 text-[#014025] font-medium text-[10px] capitalize"
-                                  >
-                                    {m.replace('_', ' ')}
-                                  </span>
-                                ))}
-                              </div>
-                            </td>
                             <td className="py-2.5 px-3 text-center">
-                              {assign.can_edit_finance ? (
-                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 font-semibold">Allowed</span>
+                              {assign.allowedFinancialModules?.includes('weekly_payments') ? (
+                                <span className="inline-block px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 font-semibold">Enabled</span>
                               ) : (
-                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-[#696969]/10 text-[#696969]">Read Only</span>
+                                <span className="text-[#696969]">-</span>
                               )}
                             </td>
                             <td className="py-2.5 px-2 text-center">
@@ -560,59 +549,17 @@ export function SecondaryAdminPage() {
                 </div>
               </div>
 
-              {/* Financial Modules Matrix */}
+              {/* Payment Tracker Access */}
               <div className="space-y-2 border-t border-[#696969]/15 pt-3">
-                <div className="font-semibold text-xs text-[#014025]">Permitted Financial Modules</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="flex items-center space-x-2 p-2 border border-[#696969]/20 rounded-md">
-                    <input
-                      type="checkbox"
-                      checked={allowedModules.includes('weekly_payments')}
-                      onChange={() => toggleModule('weekly_payments')}
-                      className="rounded text-[#014025]"
-                    />
-                    <span>Weekly Payments Tracker</span>
-                  </label>
-
-                  <label className="flex items-center space-x-2 p-2 border border-[#696969]/20 rounded-md">
-                    <input
-                      type="checkbox"
-                      checked={allowedModules.includes('petty_cash')}
-                      onChange={() => toggleModule('petty_cash')}
-                      className="rounded text-[#014025]"
-                    />
-                    <span>Petty Cash Ledger</span>
-                  </label>
-
-                  <label className="flex items-center space-x-2 p-2 border border-[#696969]/20 rounded-md">
-                    <input
-                      type="checkbox"
-                      checked={allowedModules.includes('bills')}
-                      onChange={() => toggleModule('bills')}
-                      className="rounded text-[#014025]"
-                    />
-                    <span>Supplier Bills</span>
-                  </label>
-
-                  <label className="flex items-center space-x-2 p-2 border border-[#696969]/20 rounded-md">
-                    <input
-                      type="checkbox"
-                      checked={allowedModules.includes('office_ledger')}
-                      onChange={() => toggleModule('office_ledger')}
-                      className="rounded text-[#014025]"
-                    />
-                    <span>Office Accounts Ledger</span>
-                  </label>
-                </div>
-
-                <label className="flex items-center space-x-2 pt-1 text-[11px] text-[#696969]">
+                <div className="font-semibold text-xs text-[#014025]">Payment Tracker Access</div>
+                <label className="flex items-center space-x-2 p-2 border border-[#696969]/20 rounded-md cursor-pointer hover:bg-slate-50">
                   <input
                     type="checkbox"
-                    checked={canEditFinance}
-                    onChange={(e) => setCanEditFinance(e.target.checked)}
+                    checked={allowedModules.includes('weekly_payments')}
+                    onChange={() => toggleModule('weekly_payments')}
                     className="rounded text-[#014025]"
                   />
-                  <span>Allow creating and editing financial entries in permitted modules (vs. view-only)</span>
+                  <span>Weekly Payment Tracker</span>
                 </label>
               </div>
             </div>

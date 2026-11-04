@@ -852,12 +852,6 @@ function seedInitialData() {
       graceMinutes: 15,
       overtimeRatePerHour: 150,
     }), now);
-
-    insertSetting.run('petty_cash_opening', JSON.stringify({
-      openingInAccount: 75000,
-      openingInHand: 25000,
-      asOfDate: '2026-10-01',
-    }), now);
   }
 
   // Only seed rich sample demo data (secondary admin, sample worksites, sample labourers, fake attendance) if SEED_DEMO_DATA is true
@@ -880,7 +874,7 @@ function seedInitialData() {
         'assign-sec-01',
         'usr-secadmin-01',
         'usr-staff-01',
-        JSON.stringify(['petty_cash', 'weekly_payments']),
+        JSON.stringify(['weekly_payments']),
         now,
         now
       );
@@ -1209,32 +1203,6 @@ export function seedComprehensiveDemoData(force = false) {
     'Pending', null, 'Bank Transfer', null, 'Awaiting approval queue settlement',
     'usr-admin-01', 'ERP Administrator', now, now
   );
-
-  // 6. Petty Cash Entries ("for software.xlsx" Reference)
-  const insertPetty = db.prepare(`
-    INSERT OR REPLACE INTO petty_cash_entries (
-      id, date, serial_no, description, credit_amount, debit_amount, online_amount,
-      channel, day_balance, cash_in_hand_balance, cash_in_account_balance, created_by, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  insertPetty.run('pc-demo-01', '2026-10-01', 'PC-001', 'Office stationery, ledger books & printing supplies', 0, 1250, 0, 'cash', -1250, 23750, 75000, 'usr-admin-01', now, now);
-  insertPetty.run('pc-demo-02', '2026-10-05', 'PC-002', 'Head office imprest replenishment via RTGS transfer', 50000, 0, 50000, 'online', 50000, 23750, 125000, 'usr-admin-01', now, now);
-  insertPetty.run('pc-demo-03', '2026-10-12', 'PC-003', 'Site diesel generator fuel 60 litres in cash', 0, 5400, 0, 'cash', -5400, 18350, 125000, 'usr-admin-01', now, now);
-  insertPetty.run('pc-demo-04', '2026-10-18', 'PC-004', 'Municipal curing water tanker delivery (2 tankers)', 0, 3200, 0, 'cash', -3200, 15150, 125000, 'usr-admin-01', now, now);
-  insertPetty.run('pc-demo-05', '2026-10-22', 'PC-005', 'Electrical conduit pipes and switches paid via UPI', 0, 7650, 7650, 'online', -7650, 15150, 117350, 'usr-admin-01', now, now);
-
-  // 7. Office Ledger (Restricted Double-Entry Master Admin Ledger)
-  const insertLedger = db.prepare(`
-    INSERT OR REPLACE INTO office_ledger_entries (
-      id, entry_date, reference_no, category, description, entry_type, amount, running_balance, payment_mode, notes, created_by, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  insertLedger.run('ledg-demo-01', '2026-10-01', 'CAP-2026-01', 'Capital Injection', 'Director initial working capital injection for Q4 operations', 'credit', 500000, 500000, 'NEFT', 'Ref #RBI-00918', 'usr-admin-01', now);
-  insertLedger.run('ledg-demo-02', '2026-10-08', 'ADV-LUMIA-01', 'Contractor Advance', 'Mobilization advance disbursed to Lumia Civil Works', 'debit', 150000, 350000, 'Cheque', 'Cheque #88190', 'usr-admin-01', now);
-  insertLedger.run('ledg-demo-03', '2026-10-15', 'MAT-STL-01', 'Material Purchase', 'Pankaj Steel Traders batch advance for TMT rebar', 'debit', 210000, 140000, 'RTGS', 'UTR #HDFC99120', 'usr-admin-01', now);
-  insertLedger.run('ledg-demo-04', '2026-10-22', 'CLT-BIL-01', 'Client Billing', 'Interim Client RA Bill #03 received from Lumia Infrastructure', 'credit', 380000, 520000, 'Wire', 'Receipt acknowledged', 'usr-admin-01', now);
 
   // 8. Dummy Attachments & Physical Files
   const uploadsDir = path.resolve(process.cwd(), 'data', 'uploads');

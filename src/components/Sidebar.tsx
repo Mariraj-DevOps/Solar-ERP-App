@@ -14,8 +14,6 @@ import { MapPointIcon } from '@solar-icons/react/bold/map-point';
 import { UsersGroupRoundedIcon } from '@solar-icons/react/bold/users-group-rounded';
 import { BuildingsIcon } from '@solar-icons/react/bold/buildings';
 import { CardIcon } from '@solar-icons/react/bold/card';
-import { WalletIcon } from '@solar-icons/react/bold/wallet';
-import { BillListIcon } from '@solar-icons/react/bold/bill-list';
 import { UserHandsIcon } from '@solar-icons/react/bold/user-hands';
 import { PaperclipIcon } from '@solar-icons/react/bold/paperclip';
 import { UserCheckIcon } from '@solar-icons/react/bold/user-check';
@@ -48,8 +46,6 @@ export type NavTab =
   | 'adjustments'
   | 'staff'
   | 'secondary-admins'
-  | 'office-accounts'
-  | 'petty-cash'
   | 'notifications'
   | 'audit'
   | 'settings';
@@ -160,6 +156,7 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
         },
         { id: 'weekly-reports', label: 'Weekly Reports', icon: <DocumentTextIcon size={18} /> },
         { id: 'monthly-reports', label: 'Monthly Reports', icon: <CalendarMarkIcon size={18} /> },
+        { id: 'payments', label: 'Payment Tracker', icon: <CardIcon size={18} /> },
       ],
     },
     {
@@ -169,25 +166,6 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
         { id: 'gps-attendance', label: 'GPS Attendance Queue', icon: <MapPointIcon size={18} /> },
         { id: 'labourers', label: 'Labourer Accounts', icon: <UsersGroupRoundedIcon size={18} /> },
         { id: 'worksites', label: 'Worksites & Geofences', icon: <BuildingsIcon size={18} /> },
-      ],
-    },
-    {
-      id: 'financials',
-      name: 'Financials & Accounts',
-      items: [
-        { id: 'payments', label: 'Payment Tracker', icon: <CardIcon size={18} /> },
-        {
-          id: 'petty-cash',
-          label: 'Petty Cash Ledger',
-          icon: <WalletIcon size={18} />,
-          adminOnly: true,
-        },
-        {
-          id: 'office-accounts',
-          label: 'Office Accounts Ledger',
-          icon: <BillListIcon size={18} />,
-          adminOnly: true,
-        },
       ],
     },
     {

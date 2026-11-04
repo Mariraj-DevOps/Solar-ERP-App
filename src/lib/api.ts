@@ -284,32 +284,6 @@ export const api = {
     downloadUrl: (id: string) => `${BASE_URL}/attachments/${id}/download`,
   },
 
-  officeLedger: {
-    list: (params: { startDate?: string; endDate?: string; category?: string; secondaryAdminId?: string } = {}) => {
-      const q = new URLSearchParams();
-      if (params.startDate) q.set('startDate', params.startDate);
-      if (params.endDate) q.set('endDate', params.endDate);
-      if (params.category) q.set('category', params.category);
-      if (params.secondaryAdminId) q.set('secondaryAdminId', params.secondaryAdminId);
-      return request(`/office-ledger?${q.toString()}`);
-    },
-    create: (data: any) => request('/office-ledger', { method: 'POST', body: JSON.stringify(data) }),
-  },
-
-  pettyCash: {
-    get: (params: { startDate?: string; endDate?: string; month?: number | string; year?: number | string; secondaryAdminId?: string } = {}) => {
-      const q = new URLSearchParams();
-      if (params.startDate) q.set('startDate', params.startDate);
-      if (params.endDate) q.set('endDate', params.endDate);
-      if (params.month !== undefined) q.set('month', String(params.month));
-      if (params.year !== undefined) q.set('year', String(params.year));
-      if (params.secondaryAdminId) q.set('secondaryAdminId', params.secondaryAdminId);
-      return request(`/petty-cash?${q.toString()}`);
-    },
-    create: (data: any) => request('/petty-cash', { method: 'POST', body: JSON.stringify(data) }),
-    delete: (id: string) => request(`/petty-cash/${id}`, { method: 'DELETE' }),
-  },
-
   notifications: {
     list: () => request('/notifications'),
     markRead: (id: string) => request(`/notifications/${id}/read`, { method: 'PATCH' }),

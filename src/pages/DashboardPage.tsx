@@ -467,15 +467,6 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
           <Paperclip className="w-3.5 h-3.5 text-[#456B5A]" />
           <span>Attachments</span>
         </button>
-
-        {isMasterAdmin && (
-          <button
-            onClick={() => onNavigate && onNavigate('petty-cash')}
-            className="flex items-center space-x-1.5 px-3 py-1.5 border border-[#456B5A]/30 text-[#3B5E4F] hover:bg-[#456B5A]/10 rounded-lg font-medium transition-colors"
-          >
-            <span>Petty Cash</span>
-          </button>
-        )}
       </div>
 
       {/* 30-Minute Random Spot Verification Alert Banner (Staff Only - Dispatched to Current User) */}
