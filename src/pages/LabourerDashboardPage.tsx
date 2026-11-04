@@ -423,6 +423,38 @@ function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: n
 
       {/* Main Scrollable Body */}
       <main className="p-4 space-y-4 flex-1 overflow-y-auto">
+        {/* 🚨 Emergency Top Spotlight: 30-Minute Random Attendance Verification Banner (If Active) */}
+        {activeVerifications.length > 0 && (
+          <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-2xl p-4 shadow-xl border-2 border-amber-300 ring-4 ring-amber-400/30 animate-pulse-subtle">
+            <div className="flex items-start space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-black uppercase tracking-wider">🚨 Spot Verification Requested</h3>
+                  <span className="bg-white text-amber-900 font-mono text-xs font-black px-2.5 py-0.5 rounded-full shadow-md animate-bounce">
+                    ⏱️ {timeRemaining || '30m 00s'}
+                  </span>
+                </div>
+                <p className="text-xs text-amber-100 mt-1.5 leading-snug">
+                  Supervisor <strong>{activeVerifications[0].requested_by_name || 'Admin'}</strong> requested immediate attendance verification. You must confirm your location within 30 minutes!
+                </p>
+
+                <button
+                  type="button"
+                  disabled={isLocating}
+                  onClick={() => handleVerifyAttendance(activeVerifications[0].id)}
+                  className="mt-3.5 w-full py-3 px-4 bg-white hover:bg-amber-50 active:scale-[0.98] text-amber-950 font-black rounded-xl text-xs shadow-lg flex items-center justify-center space-x-2 transition-transform cursor-pointer"
+                >
+                  <Navigation className="w-4 h-4 text-amber-700" />
+                  <span>{isLocating ? 'Capturing GPS & Submitting...' : '📍 Confirm My Location & Attendance Now'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Worker Info Card */}
         <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3">
           <div className="flex items-start justify-between">
@@ -555,36 +587,6 @@ function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: n
             Clicking <strong>Check In</strong> records your GPS location for <strong>{assignedTeam?.name || 'your assigned team'}</strong>.
           </p>
         </div>
-
-        {/* 30-Minute Random Attendance Verification Banner (If Active) */}
-        {activeVerifications.length > 0 && (
-          <div className="bg-amber-500 text-white rounded-2xl p-4 shadow-lg animate-pulse-subtle border-2 border-amber-600">
-            <div className="flex items-start space-x-2.5">
-              <ShieldAlert className="w-6 h-6 text-white shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold uppercase tracking-wider">Attendance Verification Requested</h3>
-                  <span className="bg-white text-amber-900 font-mono text-xs font-bold px-2 py-0.5 rounded-full shadow-xs">
-                    {timeRemaining}
-                  </span>
-                </div>
-                <p className="text-xs text-amber-100 mt-1">
-                  Spot verification initiated by site supervisor. Please confirm your physical presence within 30 minutes.
-                </p>
-
-                <button
-                  type="button"
-                  disabled={isLocating}
-                  onClick={() => handleVerifyAttendance(activeVerifications[0].id)}
-                  className="mt-3 w-full py-2.5 px-4 bg-white text-amber-900 font-bold rounded-xl text-xs shadow-md flex items-center justify-center space-x-2 active:bg-amber-100 cursor-pointer"
-                >
-                  <Navigation className="w-4 h-4 text-amber-700" />
-                  <span>{isLocating ? 'Capturing Fresh GPS Fix...' : 'Verify My Attendance Now'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Alerts & Feedback */}
         {actionSuccess && (

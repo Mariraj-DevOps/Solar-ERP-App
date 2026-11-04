@@ -462,6 +462,12 @@ export default function App() {
                   },
                   trigger: null,
                 });
+                // Show immediate native foreground alert dialog so worker sees it on screen immediately
+                Alert.alert(
+                  data.title || 'Solar ERP Notification',
+                  data.body || data.message || 'Action required.',
+                  [{ text: 'OK', style: 'default' }]
+                );
               }
             } catch (e) {
               // Ignore non-json messages

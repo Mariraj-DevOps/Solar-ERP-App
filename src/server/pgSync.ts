@@ -37,9 +37,12 @@ let pool: pg.Pool | null = null;
 let isSyncing = false;
 let syncTimeout: NodeJS.Timeout | null = null;
 
+// Embedded cloud connection string to ensure Render container always connects even if environment vars are unconfigured
+const DEFAULT_SUPABASE_URL = 'postgresql://postgres:Candy%4018suba@db.owcydqnfzjjfootlhoux.supabase.co:5432/postgres';
+
 function getPool(): pg.Pool | null {
   if (pool) return pool;
-  const cs = process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL;
+  const cs = process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL || DEFAULT_SUPABASE_URL;
   if (!cs) return null;
 
   try {
@@ -54,6 +57,24 @@ function getPool(): pg.Pool | null {
   } catch (err) {
     console.warn('[Postgres Sync] Could not create pool:', err);
     return null;
+  }
+}
+
+/**
+ * Remove a deleted record from remote PostgreSQL
+ */
+export async function deleteFromPostgres(tableName: string, pkValue: string): Promise<void> {
+  const p = getPool();
+  if (!p) return;
+  try {
+    const client = await p.connect();
+    try {
+      await client.query(`DELETE FROM public."${tableName}" WHERE id = $1`, [pkValue]);
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    console.warn(`[Postgres Sync] Could not delete ${pkValue} from ${tableName}:`, err.message);
   }
 }
 

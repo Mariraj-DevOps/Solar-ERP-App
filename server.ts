@@ -23,10 +23,13 @@ async function startServer() {
   // Initialize SQLite persistent database schema and initial administrator
   initDatabase();
 
-  // Restore latest cloud database state if PostgreSQL is configured (preserves data across Render spin-down / sleep)
-  restoreFromPostgres().catch((err) => {
+  // Restore latest cloud database state from PostgreSQL BEFORE accepting requests
+  // (guarantees data like newly created labour accounts and settings are preserved across Render spin-down / sleep)
+  try {
+    await restoreFromPostgres();
+  } catch (err) {
     console.warn('[Postgres Sync] Initial restore failed, running on local DB:', err);
-  });
+  }
 
   // Scheduled background sync to cloud PostgreSQL every 60 seconds
   setInterval(() => {

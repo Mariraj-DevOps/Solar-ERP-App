@@ -13,6 +13,7 @@ import {
 } from './db';
 import { computeFinancialSummary, round2 } from '../lib/calculations';
 import { getTodayKolkataISO, getWeekBounds } from '../lib/dateUtils';
+import { triggerPgSync, deleteFromPostgres } from './pgSync';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'erp-super-secure-internal-secret-2026';
 
@@ -554,6 +555,8 @@ apiRouter.post('/users', requireAuth, requireMasterAdmin, (req: Request, res: Re
     newValues: { email, fullName, role: userRole, designation, assignedLocation },
   });
 
+  triggerPgSync(500);
+
   res.status(201).json({ id, email, fullName, role: userRole, status: 'active' });
 });
 
@@ -668,6 +671,8 @@ apiRouter.patch('/users/:id', requireAuth, requireStaffOrAdmin, (req: Request, r
     previousValues: targetUser,
     newValues: { fullName, role, status, designation, assignedLocation, mobileNumber },
   });
+
+  triggerPgSync(500);
 
   res.json({ success: true, message: 'User updated successfully.' });
 });
@@ -4317,6 +4322,7 @@ apiRouter.delete('/worksites/:id', requireAuth, requireMasterAdmin, (req: Reques
   }
 
   db.prepare('DELETE FROM worksites WHERE id = ?').run(id);
+  deleteFromPostgres('worksites', id).catch(() => {});
 
   logAudit({
     actorId: req.user!.id,
@@ -4327,6 +4333,8 @@ apiRouter.delete('/worksites/:id', requireAuth, requireMasterAdmin, (req: Reques
     entityId: id,
     previousValues: existing,
   });
+
+  triggerPgSync(500);
 
   res.json({ message: 'Worksite deleted.' });
 });
@@ -4499,6 +4507,9 @@ apiRouter.post('/labourers', requireAuth, requireStaffOrAdmin, (req: Request, re
     newValues: { fullName, mobile: cleanMobile, maskedAadhaar: maskedAadhaarVal, teamId: assignedTeamId },
   });
 
+  // Immediately push newly registered labourer to PostgreSQL
+  triggerPgSync(500);
+
   res.status(201).json({ id, message: 'Labourer account registered successfully.' });
 });
 
@@ -4657,6 +4668,7 @@ apiRouter.delete('/labourers/:id', requireAuth, requireStaffOrAdmin, (req: Reque
   } else {
     // Hard delete if no attendance records exist
     db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    deleteFromPostgres('users', id).catch(() => {});
   }
 
   logAudit({
@@ -4668,6 +4680,8 @@ apiRouter.delete('/labourers/:id', requireAuth, requireStaffOrAdmin, (req: Reque
     entityId: id,
     previousValues: { fullName: existing.full_name, teamId: existing.assigned_team_id, attendanceCount: attCount },
   });
+
+  triggerPgSync(500);
 
   res.json({ success: true, message: `Labourer "${existing.full_name}" removed successfully.` });
 });
