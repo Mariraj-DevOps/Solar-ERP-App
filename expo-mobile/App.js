@@ -16,6 +16,7 @@ import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as FileSystem from 'expo-file-system';
+import * as FileSystemLegacy from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
 
@@ -437,10 +438,19 @@ export default function App() {
               } else if (data.type === 'DOWNLOAD_BASE64') {
                 try {
                   const filename = data.filename || `report_${Date.now()}.xlsx`;
-                  const fileUri = `${FileSystem.documentDirectory}${filename}`;
-                  await FileSystem.writeAsStringAsync(fileUri, data.base64, {
-                    encoding: FileSystem.EncodingType.Base64,
-                  });
+                  const FS = (FileSystemLegacy && FileSystemLegacy.documentDirectory) ? FileSystemLegacy : FileSystem;
+                  const docDir = FS.documentDirectory || (FileSystem.Paths && FileSystem.Paths.document?.uri) || '';
+                  const fileUri = `${docDir}${filename}`;
+
+                  if (typeof FS.writeAsStringAsync === 'function') {
+                    await FS.writeAsStringAsync(fileUri, data.base64, {
+                      encoding: FS.EncodingType?.Base64 || 'base64',
+                    });
+                  } else if (FileSystem.File && FileSystem.Paths) {
+                    const f = new FileSystem.File(FileSystem.Paths.document, filename);
+                    await f.write(data.base64, { encoding: 'base64' });
+                  }
+
                   if (await Sharing.isAvailableAsync()) {
                     await Sharing.shareAsync(fileUri, {
                       dialogTitle: `Save or Open ${filename}`,
@@ -456,16 +466,32 @@ export default function App() {
               } else if (data.type === 'DOWNLOAD_URL') {
                 try {
                   const filename = data.filename || `download_${Date.now()}`;
-                  const fileUri = `${FileSystem.documentDirectory}${filename}`;
+                  const FS = (FileSystemLegacy && FileSystemLegacy.documentDirectory) ? FileSystemLegacy : FileSystem;
+                  const docDir = FS.documentDirectory || (FileSystem.Paths && FileSystem.Paths.document?.uri) || '';
+                  const fileUri = `${docDir}${filename}`;
+
                   let targetUrl = data.url;
                   if (data.token && targetUrl.indexOf('token=') === -1) {
                     targetUrl += (targetUrl.indexOf('?') === -1 ? '?' : '&') + 'token=' + encodeURIComponent(data.token);
                   }
-                  const downloadResult = await FileSystem.downloadAsync(targetUrl, fileUri, {
-                    headers: data.token ? { Authorization: `Bearer ${data.token}` } : {},
-                  });
+
+                  let downloadUri = fileUri;
+                  if (typeof FS.downloadAsync === 'function') {
+                    const downloadResult = await FS.downloadAsync(targetUrl, fileUri, {
+                      headers: data.token ? { Authorization: `Bearer ${data.token}` } : {},
+                    });
+                    downloadUri = downloadResult.uri;
+                  } else if (FileSystem.File && FileSystem.Paths && FileSystem.File.downloadFileAsync) {
+                    const targetFile = new FileSystem.File(FileSystem.Paths.document, filename);
+                    const downloadResult = await FileSystem.File.downloadFileAsync(targetUrl, targetFile, {
+                      headers: data.token ? { Authorization: `Bearer ${data.token}` } : {},
+                      idempotent: true,
+                    });
+                    downloadUri = downloadResult.uri;
+                  }
+
                   if (await Sharing.isAvailableAsync()) {
-                    await Sharing.shareAsync(downloadResult.uri, {
+                    await Sharing.shareAsync(downloadUri, {
                       dialogTitle: `Save or Open ${filename}`,
                     });
                   } else {
