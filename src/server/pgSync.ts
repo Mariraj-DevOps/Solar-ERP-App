@@ -119,6 +119,15 @@ export async function restoreFromPostgres(): Promise<boolean> {
         if (t.name === 'worksites') {
           try {
             await client.query(`DELETE FROM public."worksites" WHERE id LIKE 'ws-test-%' OR name ILIKE '%Solar Plant Beta%'`);
+            await client.query(`
+              DELETE FROM public."worksites"
+              WHERE id IN (
+                SELECT id FROM (
+                  SELECT id, ROW_NUMBER() OVER (PARTITION BY LOWER(TRIM(name)) ORDER BY updated_at DESC, id ASC) as rn
+                  FROM public."worksites"
+                ) sub WHERE rn > 1
+              )
+            `);
           } catch {}
         }
 
@@ -161,9 +170,20 @@ export async function restoreFromPostgres(): Promise<boolean> {
       }
     }
 
-    // Final cleanup of residual test worksites
+    // Final cleanup of residual test and duplicate worksites
     try {
       db.prepare(`DELETE FROM worksites WHERE id LIKE 'ws-test-%' OR name LIKE '%Solar Plant Beta%'`).run();
+      const allWorksites = db.prepare("SELECT id, name, updated_at FROM worksites ORDER BY updated_at DESC, id ASC").all() as any[];
+      const seenNames = new Set<string>();
+      for (const ws of allWorksites) {
+        const key = (ws.name || '').trim().toLowerCase();
+        if (!key) continue;
+        if (seenNames.has(key)) {
+          db.prepare('DELETE FROM worksites WHERE id = ?').run(ws.id);
+        } else {
+          seenNames.add(key);
+        }
+      }
     } catch {}
 
     console.log('✅ [Postgres Sync] Successfully restored SQLite database from PostgreSQL!');

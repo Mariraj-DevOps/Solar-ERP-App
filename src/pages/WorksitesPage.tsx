@@ -14,12 +14,14 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { api } from '../lib/api';
 import { MapLocationPicker } from '../components/MapLocationPicker';
 import { CustomSelect } from '../components/CustomSelect';
 
 export function WorksitesPage() {
   const { user, isMasterAdmin, isAdminAny } = useAuth();
+  const { showSuccess, showError, showInfo } = useToast();
   const isStaff = !isAdminAny;
   const [worksites, setWorksites] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
@@ -167,12 +169,16 @@ export function WorksitesPage() {
       if (editingId) {
         const res: any = await api.worksites.update(editingId, payload);
         if (res?.pendingApproval) {
-          alert(res.message || 'Worksite change request submitted for Administrator approval.');
+          showInfo(res.message || 'Worksite change request submitted for Administrator approval.', 'Request Submitted');
+        } else {
+          showSuccess('Worksite geofence updated successfully.', 'Worksite Updated');
         }
       } else {
         const res: any = await api.worksites.create(payload);
         if (res?.pendingApproval) {
-          alert(res.message || 'New worksite request submitted for Administrator approval.');
+          showInfo(res.message || 'New worksite request submitted for Administrator approval.', 'Request Submitted');
+        } else {
+          showSuccess('Worksite created successfully.', 'Worksite Created');
         }
       }
       setShowModal(false);
@@ -186,9 +192,10 @@ export function WorksitesPage() {
     if (!window.confirm(`Are you sure you want to delete worksite "${name}"?`)) return;
     try {
       await api.worksites.delete(id);
+      showSuccess(`Worksite "${name}" deleted successfully.`, 'Worksite Deleted');
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete worksite.');
+      showError(err.message || 'Failed to delete worksite.');
     }
   };
 

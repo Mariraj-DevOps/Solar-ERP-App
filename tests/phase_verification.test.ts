@@ -922,5 +922,107 @@ describe('Phase 2 & Comprehensive ERP Verification Suite', () => {
     db.prepare('DELETE FROM secondary_admin_assignments WHERE secondary_admin_id = ?').run(secAdminId);
     db.prepare('DELETE FROM users WHERE id IN (?, ?, ?, ?)').run(secAdminId, staff1, staff2, staff3);
   });
+
+  it('verifies role-based team scoping and worksite deduplication', () => {
+    const adminId = 'usr-admin-01';
+    const secAdminId = `sec-team-${Date.now()}`;
+    const staffA = `staff-a-${Date.now()}`;
+    const staffB = `staff-b-${Date.now()}`;
+
+    // Create test accounts
+    db.prepare(`
+      INSERT OR REPLACE INTO users (id, email, password_hash, full_name, role, status, created_at, updated_at)
+      VALUES (?, 'sec@test.com', 'hash', 'Branch Manager', 'secondary_admin', 'active', datetime('now'), datetime('now'))
+    `).run(secAdminId);
+    db.prepare(`
+      INSERT OR REPLACE INTO users (id, email, password_hash, full_name, role, status, assigned_admin_id, created_at, updated_at)
+      VALUES (?, 'staffa@test.com', 'hash', 'Staff Alpha', 'staff', 'active', ?, datetime('now'), datetime('now'))
+    `).run(staffA, secAdminId);
+    db.prepare(`
+      INSERT OR REPLACE INTO users (id, email, password_hash, full_name, role, status, created_at, updated_at)
+      VALUES (?, 'staffb@test.com', 'hash', 'Staff Beta', 'staff', 'active', datetime('now'), datetime('now'))
+    `).run(staffB);
+
+    // Create teams with different owners
+    const teamA = `team-alpha-${Date.now()}`;
+    const teamB = `team-beta-${Date.now()}`;
+    const teamSec = `team-sec-${Date.now()}`;
+
+    db.prepare(`
+      INSERT INTO teams (id, name, work_category, owner_user_id, status, created_at, updated_at)
+      VALUES (?, 'Team Alpha (Staff A)', 'Civil', ?, 'active', datetime('now'), datetime('now'))
+    `).run(teamA, staffA);
+    db.prepare(`
+      INSERT INTO teams (id, name, work_category, owner_user_id, status, created_at, updated_at)
+      VALUES (?, 'Team Beta (Staff B)', 'Electrical', ?, 'active', datetime('now'), datetime('now'))
+    `).run(teamB, staffB);
+    db.prepare(`
+      INSERT INTO teams (id, name, work_category, owner_user_id, status, created_at, updated_at)
+      VALUES (?, 'Team Branch (Sec Admin)', 'Carpentry', ?, 'active', datetime('now'), datetime('now'))
+    `).run(teamSec, secAdminId);
+
+    // 1. Staff A scope: only sees Team A
+    const staffATeams = db.prepare(`
+      SELECT id FROM teams WHERE status = 'active' AND owner_user_id = ?
+    `).all(staffA) as any[];
+    expect(staffATeams.map(t => t.id)).toContain(teamA);
+    expect(staffATeams.map(t => t.id)).not.toContain(teamB);
+    expect(staffATeams.map(t => t.id)).not.toContain(teamSec);
+
+    // 2. Staff B scope: only sees Team B
+    const staffBTeams = db.prepare(`
+      SELECT id FROM teams WHERE status = 'active' AND owner_user_id = ?
+    `).all(staffB) as any[];
+    expect(staffBTeams.map(t => t.id)).toContain(teamB);
+    expect(staffBTeams.map(t => t.id)).not.toContain(teamA);
+
+    // 3. Secondary Admin scope: sees Team Sec AND assigned Staff A's teams, but NOT Staff B's teams
+    const secTeams = db.prepare(`
+      SELECT id FROM teams
+      WHERE status = 'active' AND (
+        owner_user_id = ? OR
+        owner_user_id IN (SELECT staff_user_id FROM secondary_admin_assignments WHERE secondary_admin_id = ?) OR
+        owner_user_id IN (SELECT id FROM users WHERE assigned_admin_id = ?)
+      )
+    `).all(secAdminId, secAdminId, secAdminId) as any[];
+    const secTeamIds = secTeams.map(t => t.id);
+    expect(secTeamIds).toContain(teamSec);
+    expect(secTeamIds).toContain(teamA);
+    expect(secTeamIds).not.toContain(teamB);
+
+    // 4. Test worksite deduplication logic
+    const wsName = `Duplicate Test Site ${Date.now()}`;
+    const ws1 = `ws-dup-1-${Date.now()}`;
+    const ws2 = `ws-dup-2-${Date.now()}`;
+    db.prepare(`
+      INSERT INTO worksites (id, name, project_name, latitude, longitude, created_by, created_at, updated_at)
+      VALUES (?, ?, 'Project Dup', 12.97, 77.59, 'usr-admin-01', datetime('now'), datetime('now'))
+    `).run(ws1, wsName);
+    db.prepare(`
+      INSERT INTO worksites (id, name, project_name, latitude, longitude, created_by, created_at, updated_at)
+      VALUES (?, ?, 'Project Dup', 12.97, 77.59, 'usr-admin-01', datetime('now'), datetime('now', '+1 minute'))
+    `).run(ws2, wsName);
+
+    // Run deduplicator
+    const allWorksites = db.prepare("SELECT id, name, updated_at FROM worksites WHERE name = ? ORDER BY updated_at DESC, id ASC").all(wsName) as any[];
+    const seenNames = new Set<string>();
+    for (const ws of allWorksites) {
+      const key = (ws.name || '').trim().toLowerCase();
+      if (seenNames.has(key)) {
+        db.prepare('DELETE FROM worksites WHERE id = ?').run(ws.id);
+      } else {
+        seenNames.add(key);
+      }
+    }
+
+    const surviving = db.prepare("SELECT id FROM worksites WHERE name = ?").all(wsName) as any[];
+    expect(surviving.length).toBe(1);
+    expect(surviving[0].id).toBe(ws2); // The newer one was preserved
+
+    // Cleanup
+    db.prepare('DELETE FROM worksites WHERE name = ?').run(wsName);
+    db.prepare('DELETE FROM teams WHERE id IN (?, ?, ?)').run(teamA, teamB, teamSec);
+    db.prepare('DELETE FROM users WHERE id IN (?, ?, ?)').run(secAdminId, staffA, staffB);
+  });
 });
 

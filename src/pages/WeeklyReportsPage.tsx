@@ -20,8 +20,10 @@ import { getWeekBounds, getTodayKolkataISO, formatDateDisplay } from '../lib/dat
 import { WeekNavigator } from '../components/WeekNavigator';
 import { exportWeeklyReportPDF, exportWeeklyReportExcel } from '../lib/exportUtils';
 import { useAuth } from '../context/AuthContext';
-import { CreditCard, CheckCircle2, Clock, Search, X, Filter } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { CreditCard, CheckCircle2, Clock, Search, X, Filter, Layers } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
+import { MergeModal } from '../components/MergeModal';
 
 const EMPTY_TOTALS = {
   labour: 0,
@@ -48,6 +50,8 @@ export function WeeklyReportsPage() {
   });
 
   const { user, isMasterAdmin, isAdminAny } = useAuth();
+  const { showSuccess, showError } = useToast();
+  const [showMergeModal, setShowMergeModal] = useState(false);
   const [reportData, setReportData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -283,6 +287,17 @@ export function WeeklyReportsPage() {
             <Printer className="w-4 h-4 text-[#456B5A]" />
             <span>Print</span>
           </button>
+
+          {isAdminAny && (
+            <button
+              onClick={() => setShowMergeModal(true)}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-xs font-semibold shadow-xs hover:shadow-md transition-all cursor-pointer"
+              title="Combine / Merge Teams & Attendance for this week"
+            >
+              <Layers className="w-4 h-4" />
+              <span>Combine / Merge Teams</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -898,7 +913,7 @@ export function WeeklyReportsPage() {
                 type="button"
                 onClick={async () => {
                   if (amountPaidInput <= 0) {
-                    alert('Please enter an amount paid.');
+                    showError('Please enter an amount paid.');
                     return;
                   }
                   setIsSubmittingPayment(true);
@@ -917,10 +932,11 @@ export function WeeklyReportsPage() {
                       voucherRef,
                       notes: paymentNotes,
                     });
+                    showSuccess(`Payment of ${formatINR(amountPaidInput)} recorded successfully for ${paymentTeam.teamName}.`, 'Payment Recorded');
                     setMarkPaidModalOpen(false);
                     loadReport();
                   } catch (err: any) {
-                    alert(err.message || 'Payment recording failed.');
+                    showError(err.message || 'Payment recording failed.');
                   } finally {
                     setIsSubmittingPayment(false);
                   }
@@ -934,6 +950,17 @@ export function WeeklyReportsPage() {
           </div>
         </div>
       )}
+
+      {/* Team Merge Modal (Mode A / Mode B) */}
+      <MergeModal
+        isOpen={showMergeModal}
+        onClose={() => setShowMergeModal(false)}
+        onSuccess={() => {
+          showSuccess('Teams and attendance merged successfully.', 'Merge Executed');
+          loadReport();
+        }}
+        weekStartDate={currentWeekStart}
+      />
 
       <style>{`
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }

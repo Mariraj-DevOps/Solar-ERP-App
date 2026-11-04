@@ -212,8 +212,17 @@ export function MergeModal({ isOpen, onClose, onSuccess, weekStartDate }: MergeM
                         onChange={() => toggleTeamSelection(t.id)}
                         className="rounded border-[#696969]/30 text-[#456B5A] focus:ring-[#456B5A]"
                       />
-                      <span className="text-xs text-[#014025] font-medium">{t.name}</span>
-                      <span className="text-[10px] text-[#696969]">({t.work_category})</span>
+                      <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                        <div className="flex items-center space-x-1.5 truncate">
+                          <span className="text-xs text-[#014025] font-medium truncate">{t.name}</span>
+                          <span className="text-[10px] text-[#696969] shrink-0">({t.work_category})</span>
+                        </div>
+                        {t.owner_name && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/50 shrink-0">
+                            Staff: {t.owner_name}
+                          </span>
+                        )}
+                      </div>
                     </label>
                   ))}
                 </div>
@@ -236,7 +245,14 @@ export function MergeModal({ isOpen, onClose, onSuccess, weekStartDate }: MergeM
                         onChange={() => toggleTeamSelection(t.id)}
                         className="rounded border-[#696969]/30 text-[#456B5A] focus:ring-[#456B5A]"
                       />
-                      <span className="text-xs text-[#014025] font-medium">{t.name}</span>
+                      <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                        <span className="text-xs text-[#014025] font-medium truncate">{t.name}</span>
+                        {t.owner_name && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/50 shrink-0">
+                            Staff: {t.owner_name}
+                          </span>
+                        )}
+                      </div>
                     </label>
                   ))}
                 </div>
@@ -251,7 +267,7 @@ export function MergeModal({ isOpen, onClose, onSuccess, weekStartDate }: MergeM
                   options={teams.map((t) => ({
                     value: t.id,
                     label: t.name,
-                    sublabel: t.work_category,
+                    sublabel: `${t.work_category}${t.owner_name ? ` • Staff: ${t.owner_name}` : ''}`,
                   }))}
                   placeholder="Select Destination Team..."
                 />

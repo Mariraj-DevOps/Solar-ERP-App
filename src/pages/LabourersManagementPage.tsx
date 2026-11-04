@@ -22,12 +22,14 @@ import {
   Building2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { api } from '../lib/api';
 import { MapLocationPicker } from '../components/MapLocationPicker';
 import { CustomSelect } from '../components/CustomSelect';
 
 export function LabourersManagementPage() {
   const { user, isAdminAny, isMasterAdmin, isSecondaryAdmin, isStaff } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [labourers, setLabourers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [worksites, setWorksites] = useState<any[]>([]);
@@ -161,12 +163,13 @@ export function LabourersManagementPage() {
 
     try {
       await api.labourers.transferTeam(transferTarget.id, newTeamId, transferReason);
+      showSuccess(`Labourer transferred to new team.`, 'Team Transferred');
       setTransferTarget(null);
       setNewTeamId('');
       setTransferReason('');
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to transfer labourer.');
+      showError(err.message || 'Failed to transfer labourer.');
     }
   };
 
@@ -178,9 +181,9 @@ export function LabourersManagementPage() {
       await api.labourers.resetPassword(resetTarget.id, newPassword);
       setResetTarget(null);
       setNewPassword('');
-      alert('Password updated successfully.');
+      showSuccess('Password updated successfully.', 'Password Reset');
     } catch (err: any) {
-      alert(err.message || 'Failed to reset password.');
+      showError(err.message || 'Failed to reset password.');
     }
   };
 
@@ -209,6 +212,7 @@ export function LabourersManagementPage() {
     setEditError(null);
     try {
       await api.labourers.update(editingLabourer.id, editForm);
+      showSuccess('Labourer profile updated successfully.', 'Labourer Updated');
       setEditingLabourer(null);
       await loadData();
     } catch (err: any) {
@@ -224,9 +228,10 @@ export function LabourersManagementPage() {
     }
     try {
       await api.labourers.delete(lab.id);
+      showSuccess(`Labourer "${lab.full_name}" removed.`, 'Labourer Removed');
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to remove labourer.');
+      showError(err.message || 'Failed to remove labourer.');
     }
   };
 

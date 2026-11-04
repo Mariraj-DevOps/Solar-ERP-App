@@ -886,9 +886,20 @@ function seedInitialData() {
       );
     }
 
-  // Clean up any stray test-generated duplicate worksites from automated test suites
+  // Clean up any stray test-generated duplicate worksites and auto-deduplicate duplicate worksite names
   try {
     db.prepare("DELETE FROM worksites WHERE id LIKE 'ws-test-%' OR name LIKE '%Solar Plant Beta%'").run();
+    const allWorksites = db.prepare("SELECT id, name, updated_at FROM worksites ORDER BY updated_at DESC, id ASC").all() as any[];
+    const seenNames = new Set<string>();
+    for (const ws of allWorksites) {
+      const key = (ws.name || '').trim().toLowerCase();
+      if (!key) continue;
+      if (seenNames.has(key)) {
+        db.prepare('DELETE FROM worksites WHERE id = ?').run(ws.id);
+      } else {
+        seenNames.add(key);
+      }
+    }
   } catch {}
 
   // Seed sample worksites if empty

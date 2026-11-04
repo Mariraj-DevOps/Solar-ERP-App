@@ -28,10 +28,12 @@ import { formatINR, round2 } from '../lib/calculations';
 import { getTodayKolkataISO, formatDateDisplay } from '../lib/dateUtils';
 import { AttendanceModal } from '../components/AttendanceModal';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { CustomSelect } from '../components/CustomSelect';
 
 export function DailyAttendancePage() {
   const { user, isAdminAny, isMasterAdmin, isSecondaryAdmin } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [selectedDate, setSelectedDate] = useState<string>(getTodayKolkataISO());
   const [entries, setEntries] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
@@ -115,9 +117,10 @@ export function DailyAttendancePage() {
     if (!window.confirm('Delete this attendance entry? It will be logged in the audit trail.')) return;
     try {
       await api.attendance.delete(id);
+      showSuccess('Attendance entry deleted successfully.', 'Entry Deleted');
       loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete');
+      showError(err.message || 'Failed to delete');
     }
   };
 
@@ -146,9 +149,10 @@ export function DailyAttendancePage() {
           overrideReason: l.override_reason,
         })),
       });
+      showSuccess('Attendance duplicated successfully as Batch 2.', 'Duplicate Created');
       loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to duplicate');
+      showError(err.message || 'Failed to duplicate');
     }
   };
 
@@ -167,11 +171,11 @@ export function DailyAttendancePage() {
         reason: reRequestReason.trim(),
         notes: `Supervisor ${user?.fullName || 'Staff'} requested 30-min location re-check.`,
       });
-      alert(`Re-verification request dispatched to ${targetGpsRecord.user_name}. Worker has 30 minutes to confirm location inside site geofence.`);
+      showSuccess(`Re-verification request dispatched to ${targetGpsRecord.user_name}. Worker has 30 minutes to confirm location inside site geofence.`, 'Spot Check Dispatched');
       setReRequestModalOpen(false);
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to send location re-request');
+      showError(err.message || 'Failed to send location re-request');
     } finally {
       setIsSubmittingReRequest(false);
     }
@@ -180,9 +184,10 @@ export function DailyAttendancePage() {
   const handleApproveGps = async (id: string) => {
     try {
       await api.gpsAttendance.approve(id);
+      showSuccess('Attendance record approved successfully.', 'Attendance Approved');
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to approve attendance');
+      showError(err.message || 'Failed to approve attendance');
     }
   };
 
@@ -191,20 +196,21 @@ export function DailyAttendancePage() {
     if (!reason || !reason.trim()) return;
     try {
       await api.gpsAttendance.reject(id, reason.trim());
+      showSuccess('Attendance record rejected.', 'Attendance Rejected');
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to reject attendance');
+      showError(err.message || 'Failed to reject attendance');
     }
   };
 
   // Create spot verification
   const handleCreateSpotVerification = async () => {
     if (spotTargetType === 'individual' && !spotTargetUserId) {
-      alert('Please select a labourer to verify.');
+      showError('Please select a labourer to verify.');
       return;
     }
     if (spotTargetType === 'team' && !spotTargetTeamId) {
-      alert('Please select a team to verify.');
+      showError('Please select a team to verify.');
       return;
     }
 
@@ -216,11 +222,11 @@ export function DailyAttendancePage() {
         targetTeamId: spotTargetType === 'team' ? spotTargetTeamId : undefined,
         notes: spotNotes.trim(),
       });
-      alert('30-Minute Spot Verification request sent successfully.');
+      showSuccess('30-Minute Random Attendance Verification request dispatched successfully.', 'Spot Check Dispatched');
       setSpotModalOpen(false);
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to create spot verification request');
+      showError(err.message || 'Failed to create spot verification request');
     } finally {
       setIsSubmittingSpot(false);
     }

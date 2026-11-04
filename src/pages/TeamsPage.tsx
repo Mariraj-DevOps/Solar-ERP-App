@@ -25,15 +25,26 @@ import { useAuth } from '../context/AuthContext';
 import { CustomSelect } from '../components/CustomSelect';
 
 export function TeamsPage() {
-  const { user, isMasterAdmin, isAdminAny } = useAuth();
+  const { user, isMasterAdmin, isSecondaryAdmin, isAdminAny } = useAuth();
   const [activeTab, setActiveTab] = useState<'teams' | 'categories'>('teams');
   const [teams, setTeams] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [offices, setOffices] = useState<any[]>([]);
+  const [usersList, setUsersList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+
+  // Master Admin Scoping Filters
+  const [selectedOffice, setSelectedOffice] = useState<string>('all');
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
+  const [selectedCreator, setSelectedCreator] = useState<string>('all');
+
+  // Secondary Admin Staff Filter
+  const [selectedStaffFilter, setSelectedStaffFilter] = useState<string>('all');
+
   const [catSearch, setCatSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<any | null>(null);
@@ -57,9 +68,19 @@ export function TeamsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [tList, cList] = await Promise.all([api.teams.list(), api.categories.list()]);
-      setTeams(tList);
-      setCategories(cList);
+      const promises: Promise<any>[] = [
+        api.teams.list(),
+        api.categories.list(),
+      ];
+      if (isMasterAdmin || isSecondaryAdmin) {
+        promises.push(api.offices.list().catch(() => []));
+        promises.push(api.users.list().catch(() => []));
+      }
+      const [tList, cList, offList, uList] = await Promise.all(promises);
+      setTeams(tList || []);
+      setCategories(cList || []);
+      if (offList) setOffices(offList);
+      if (uList) setUsersList(uList);
     } catch (err) {
       console.error(err);
     } finally {
@@ -163,7 +184,72 @@ export function TeamsPage() {
   const uniqueCategories = Array.from(new Set(teams.map((t) => t.work_category).filter(Boolean)));
   const uniqueProjects = Array.from(new Set(teams.map((t) => t.location_project).filter(Boolean)));
 
+  // Master Admin Creator options
+  const availableCreators = usersList.filter((u) => {
+    if (selectedOffice !== 'all') {
+      if (selectedOffice === 'head_office') {
+        if (u.role !== 'master_admin' && u.role !== 'admin' && u.assigned_admin_id) return false;
+      } else {
+        if (u.id !== selectedOffice && u.assigned_admin_id !== selectedOffice) return false;
+      }
+    }
+    if (selectedRoleFilter !== 'all') {
+      if (selectedRoleFilter === 'master_admin') {
+        if (u.role !== 'master_admin' && u.role !== 'admin') return false;
+      } else if (u.role !== selectedRoleFilter) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  // Secondary Admin Staff options
+  const myAssignedStaff = usersList.filter(
+    (u) => u.role === 'staff' && (
+      u.assigned_admin_id === user?.id ||
+      teams.some((t) => t.owner_user_id === u.id)
+    )
+  );
+
   const filteredTeams = teams.filter((t) => {
+    // 1. Role-based scoping filters:
+    if (isMasterAdmin) {
+      // Office-wise filter:
+      if (selectedOffice !== 'all') {
+        if (selectedOffice === 'head_office') {
+          const isHO = t.owner_role === 'master_admin' || t.owner_role === 'admin' || (!t.manager_id && t.owner_role !== 'secondary_admin');
+          if (!isHO) return false;
+        } else {
+          // specific secondary admin office
+          if (t.manager_id !== selectedOffice && t.owner_user_id !== selectedOffice) return false;
+        }
+      }
+
+      // Admins/Role-wise filter:
+      if (selectedRoleFilter !== 'all') {
+        if (selectedRoleFilter === 'master_admin') {
+          if (t.owner_role !== 'master_admin' && t.owner_role !== 'admin') return false;
+        } else if (t.owner_role !== selectedRoleFilter) {
+          return false;
+        }
+      }
+
+      // Staff/Creator-wise filter:
+      if (selectedCreator !== 'all' && t.owner_user_id !== selectedCreator) {
+        return false;
+      }
+    } else if (isSecondaryAdmin) {
+      // Secondary admin staff-wise filter:
+      if (selectedStaffFilter !== 'all') {
+        if (selectedStaffFilter === 'mine') {
+          if (t.owner_user_id !== user?.id) return false;
+        } else if (t.owner_user_id !== selectedStaffFilter) {
+          return false;
+        }
+      }
+    }
+
+    // 2. Standard category, project, status, and search filters:
     if (selectedCategory !== 'all' && t.work_category !== selectedCategory) return false;
     if (selectedProject !== 'all' && (t.location_project || '') !== selectedProject) return false;
     if (selectedStatus === 'active' && t.status !== 'active') return false;
@@ -173,7 +259,10 @@ export function TeamsPage() {
     return (
       t.name.toLowerCase().includes(term) ||
       (t.work_category || '').toLowerCase().includes(term) ||
-      (t.location_project || '').toLowerCase().includes(term)
+      (t.location_project || '').toLowerCase().includes(term) ||
+      (t.owner_name || '').toLowerCase().includes(term) ||
+      (t.manager_name || '').toLowerCase().includes(term) ||
+      (t.office_name || '').toLowerCase().includes(term)
     );
   });
 
@@ -302,6 +391,134 @@ export function TeamsPage() {
       {/* ========================================================================= */}
       {activeTab === 'teams' && (
         <div className="space-y-4">
+          {/* Master Admin: Office, Admin, and Staff Governance Filter Bar */}
+          {isMasterAdmin && (
+            <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-2xl p-4 shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-emerald-200/60 pb-2">
+                <div className="flex items-center space-x-2 text-xs font-bold text-[#014025]">
+                  <Building className="w-4 h-4 text-emerald-700" />
+                  <span>Master Admin Governance: Office, Admin &amp; Staff Filters</span>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-800 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                  Global Scope ({filteredTeams.length} of {teams.length} teams)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Office Wise Filter */}
+                <div>
+                  <CustomSelect
+                    label="Office / Branch Location"
+                    value={selectedOffice}
+                    onChange={(val) => {
+                      setSelectedOffice(val);
+                      setSelectedCreator('all');
+                    }}
+                    options={[
+                      { value: 'all', label: 'All Offices & Branches' },
+                      { value: 'head_office', label: 'Head Office (Central / Master Admin)' },
+                      ...offices.filter((o) => o.id !== 'head_office').map((o) => ({
+                        value: o.id,
+                        label: o.name || `${o.adminName} Branch`,
+                        sublabel: `${o.staffCount || 0} Staff assigned`,
+                      })),
+                    ]}
+                    size="sm"
+                    placeholder="Filter by Office"
+                  />
+                </div>
+
+                {/* Admin Wise / Creator Role Filter */}
+                <div>
+                  <CustomSelect
+                    label="Creator Role (Admins / Staff)"
+                    value={selectedRoleFilter}
+                    onChange={(val) => {
+                      setSelectedRoleFilter(val);
+                      setSelectedCreator('all');
+                    }}
+                    options={[
+                      { value: 'all', label: 'All Creator Roles' },
+                      { value: 'master_admin', label: 'Master Admin Teams Only' },
+                      { value: 'secondary_admin', label: 'Secondary Admin / Manager Teams' },
+                      { value: 'staff', label: 'Operations Staff Teams' },
+                    ]}
+                    size="sm"
+                    placeholder="Filter by Role"
+                  />
+                </div>
+
+                {/* Specific Staff / Creator Filter */}
+                <div>
+                  <CustomSelect
+                    label="Specific Creator / Staff Member"
+                    value={selectedCreator}
+                    onChange={(val) => setSelectedCreator(val)}
+                    options={[
+                      { value: 'all', label: 'All Staff & Admins' },
+                      ...availableCreators.map((u) => ({
+                        value: u.id,
+                        label: u.full_name,
+                        sublabel: `${u.role === 'secondary_admin' ? 'Manager' : u.role === 'staff' ? 'Staff' : 'Master Admin'} (${u.email})`,
+                      })),
+                    ]}
+                    size="sm"
+                    placeholder="Filter by Creator"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Secondary Admin: Filter By Assigned Staff */}
+          {isSecondaryAdmin && (
+            <div className="bg-blue-50/70 border border-blue-200/90 rounded-2xl p-4 shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-blue-200/60 pb-2">
+                <div className="flex items-center space-x-2 text-xs font-bold text-blue-950">
+                  <Users className="w-4 h-4 text-blue-700" />
+                  <span>Manager Scope: Assigned Staff Team Templates</span>
+                </div>
+                <span className="text-[10px] font-bold text-blue-800 bg-white px-2 py-0.5 rounded-md border border-blue-200">
+                  {filteredTeams.length} of {teams.length} teams visible
+                </span>
+              </div>
+
+              <div className="w-full sm:w-1/2">
+                <CustomSelect
+                  label="Filter by Assigned Staff"
+                  value={selectedStaffFilter}
+                  onChange={(val) => setSelectedStaffFilter(val)}
+                  options={[
+                    { value: 'all', label: 'All My Staff Teams' },
+                    { value: 'mine', label: 'Teams Created by Me (Manager)' },
+                    ...myAssignedStaff.map((s) => ({
+                      value: s.id,
+                      label: s.full_name,
+                      sublabel: `${s.designation || 'Staff'} (${s.email})`,
+                    })),
+                  ]}
+                  size="sm"
+                  placeholder="Filter by Staff"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Staff Personal Scope Notice */}
+          {!isAdminAny && (
+            <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-950 flex items-center justify-between shadow-2xs">
+              <div className="flex items-center space-x-2">
+                <Users className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span className="font-medium">
+                  Showing your team templates ({filteredTeams.length} teams). Teams created by other staff or offices are restricted to their scope.
+                </span>
+              </div>
+              <span className="text-[10px] bg-white px-2 py-0.5 rounded-md border border-emerald-300 font-bold text-emerald-800">
+                Staff Personal Scope
+              </span>
+            </div>
+          )}
+
           {/* Filter Toolbar */}
           <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -362,7 +579,7 @@ export function TeamsPage() {
             </div>
 
             {/* Active filters status / reset */}
-            {(search || selectedCategory !== 'all' || selectedProject !== 'all' || selectedStatus !== 'all') && (
+            {(search || selectedCategory !== 'all' || selectedProject !== 'all' || selectedStatus !== 'all' || selectedOffice !== 'all' || selectedRoleFilter !== 'all' || selectedCreator !== 'all' || selectedStaffFilter !== 'all') && (
               <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs text-slate-500">
                 <span>
                   Showing <strong>{filteredTeams.length}</strong> of {teams.length} teams
@@ -373,11 +590,15 @@ export function TeamsPage() {
                     setSelectedCategory('all');
                     setSelectedProject('all');
                     setSelectedStatus('all');
+                    setSelectedOffice('all');
+                    setSelectedRoleFilter('all');
+                    setSelectedCreator('all');
+                    setSelectedStaffFilter('all');
                   }}
                   className="text-xs text-[#0E6037] hover:text-[#0B4D2C] font-semibold flex items-center space-x-1 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
-                  <span>Reset Filters</span>
+                  <span>Reset All Filters</span>
                 </button>
               </div>
             )}
@@ -420,13 +641,30 @@ export function TeamsPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <h3 className="font-bold text-sm text-slate-800">{team.name}</h3>
-                        <span className="inline-block text-[10px] uppercase font-semibold px-2.5 py-0.5 rounded-full bg-[#E5EFE9] text-[#134E35] border border-[#CFE1D6] mt-1.5">
-                          {team.work_category}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          <span className="inline-block text-[10px] uppercase font-semibold px-2.5 py-0.5 rounded-full bg-[#E5EFE9] text-[#134E35] border border-[#CFE1D6]">
+                            {team.work_category}
+                          </span>
+
+                          {/* Creator & Office Governance Badge */}
+                          {team.owner_role === 'master_admin' || team.owner_role === 'admin' ? (
+                            <span className="inline-flex items-center text-[10px] bg-[#014025] text-white font-semibold px-2 py-0.5 rounded-md">
+                              Head Office • Admin
+                            </span>
+                          ) : team.owner_role === 'secondary_admin' ? (
+                            <span className="inline-flex items-center text-[10px] bg-blue-50 text-blue-900 border border-blue-200 font-semibold px-2 py-0.5 rounded-md">
+                              Manager: {team.owner_name} ({team.office_name || 'Branch'})
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center text-[10px] bg-emerald-50 text-emerald-900 border border-emerald-200 font-semibold px-2 py-0.5 rounded-md">
+                              Staff: {team.owner_name || 'Staff Member'} {team.manager_name ? `• ${team.manager_name} Branch` : ''}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <button
                         onClick={() => handleEditTeam(team)}
-                        className="p-1.5 text-slate-400 hover:text-[#0E6037] hover:bg-[#0E6037]/10 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-[#0E6037] hover:bg-[#0E6037]/10 rounded-lg transition-colors cursor-pointer shrink-0 ml-2"
                         title="Edit team template"
                       >
                         <Edit2 className="w-4 h-4" />

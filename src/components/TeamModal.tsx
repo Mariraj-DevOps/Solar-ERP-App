@@ -5,6 +5,7 @@ import { MapLocationPicker } from './MapLocationPicker';
 import { CustomSelect } from './CustomSelect';
 
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 interface TeamModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface TeamModalProps {
 
 export function TeamModal({ isOpen, onClose, onSuccess, editTeam }: TeamModalProps) {
   const { user, isAdminAny } = useAuth();
+  const { showSuccess, showInfo } = useToast();
   const [name, setName] = useState('');
   const [workCategory, setWorkCategory] = useState('');
   const [locationProject, setLocationProject] = useState('');
@@ -202,14 +204,17 @@ export function TeamModal({ isOpen, onClose, onSuccess, editTeam }: TeamModalPro
             reason: locationChangeReason.trim(),
           });
 
-          alert(res.message || `Team details saved. Your requested site location change has been submitted to your assigned Administrator (${assignedAdminName}) for approval.`);
+          showInfo(res.message || `Team details saved. Your requested site location change has been submitted to your assigned Administrator (${assignedAdminName}) for approval.`, 'Location Change Submitted');
         } else {
           await api.teams.update(editTeam.id, payload);
+          showSuccess('Team updated successfully.', 'Team Saved');
         }
       } else {
         const createRes = await api.teams.create(payload);
         if (!isAdminAny && siteLatitude !== null && siteLongitude !== null) {
-          alert(createRes.message || `Team created! As operations staff, worksite location has been submitted to your assigned Administrator (${assignedAdminName}) for approval.`);
+          showInfo(createRes.message || `Team created! As operations staff, worksite location has been submitted to your assigned Administrator (${assignedAdminName}) for approval.`, 'Worksite Approval Pending');
+        } else {
+          showSuccess('Team created successfully.', 'Team Created');
         }
       }
 

@@ -18,11 +18,13 @@ import { api } from '../lib/api';
 import { formatINR, round2 } from '../lib/calculations';
 import { formatDateDisplay } from '../lib/dateUtils';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { MapLocationPicker } from '../components/MapLocationPicker';
 import { CustomSelect } from '../components/CustomSelect';
 
 export function ApprovalQueuePage() {
   const { user, isMasterAdmin, isSecondaryAdmin } = useAuth();
+  const { showSuccess, showError, showInfo } = useToast();
   const [queue, setQueue] = useState<any[]>([]);
   const [geofenceRequests, setGeofenceRequests] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,10 +74,11 @@ export function ApprovalQueuePage() {
     setIsProcessing(true);
     try {
       await api.attendance.approve(entry.id);
+      showSuccess(`Attendance for ${entry.team_name || 'Team'} approved.`, 'Attendance Approved');
       await loadQueue();
       setSelectedEntry(null);
     } catch (err: any) {
-      alert(err.message || 'Approval failed.');
+      showError(err.message || 'Approval failed.');
     } finally {
       setIsProcessing(false);
     }
@@ -83,7 +86,7 @@ export function ApprovalQueuePage() {
 
   const handleRejectSubmit = async () => {
     if (!rejectionReason.trim()) {
-      alert('Please enter a mandatory rejection reason.');
+      showError('Please enter a mandatory rejection reason.');
       return;
     }
     if (!selectedEntry) return;
@@ -91,12 +94,13 @@ export function ApprovalQueuePage() {
     setIsProcessing(true);
     try {
       await api.attendance.reject(selectedEntry.id, rejectionReason.trim());
+      showSuccess('Attendance entry rejected.', 'Attendance Rejected');
       setRejectModalOpen(false);
       setRejectionReason('');
       setSelectedEntry(null);
       await loadQueue();
     } catch (err: any) {
-      alert(err.message || 'Rejection failed.');
+      showError(err.message || 'Rejection failed.');
     } finally {
       setIsProcessing(false);
     }
@@ -110,10 +114,10 @@ export function ApprovalQueuePage() {
     setIsProcessing(true);
     try {
       await api.geofenceRequests.approve(req.id);
-      alert(`Geofence location change for "${req.entity_name}" has been approved and applied to live site perimeters.`);
+      showSuccess(`Geofence location change for "${req.entity_name}" approved and applied to live site perimeters.`, 'Geofence Approved');
       await loadQueue();
     } catch (err: any) {
-      alert(err.message || 'Failed to approve geofence request.');
+      showError(err.message || 'Failed to approve geofence request.');
     } finally {
       setIsProcessing(false);
     }
@@ -126,10 +130,10 @@ export function ApprovalQueuePage() {
     setIsProcessing(true);
     try {
       await api.geofenceRequests.reject(req.id, reason.trim());
-      alert(`Geofence location request rejected.`);
+      showSuccess(`Geofence location request rejected.`, 'Request Rejected');
       await loadQueue();
     } catch (err: any) {
-      alert(err.message || 'Failed to reject geofence request.');
+      showError(err.message || 'Failed to reject geofence request.');
     } finally {
       setIsProcessing(false);
     }

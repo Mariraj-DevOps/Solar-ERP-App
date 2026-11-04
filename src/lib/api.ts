@@ -121,7 +121,10 @@ export const api = {
   },
 
   teams: {
-    list: () => request('/teams'),
+    list: (params?: Record<string, string>) => {
+      const q = params ? '?' + new URLSearchParams(params).toString() : '';
+      return request(`/teams${q}`);
+    },
     create: (team: any) => request('/teams', { method: 'POST', body: JSON.stringify(team) }),
     update: (id: string, team: any) => request(`/teams/${id}`, { method: 'PUT', body: JSON.stringify(team) }),
     getWeekAssignments: (weekStart: string) => request(`/teams/week/${weekStart}`),

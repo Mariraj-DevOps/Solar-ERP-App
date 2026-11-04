@@ -1180,31 +1180,80 @@ apiRouter.delete('/categories/:id', requireAuth, (req: Request, res: Response) =
 });
 
 // =========================================================================
-// 6. TEAMS & TEMPLATES (WITH STAFF ISOLATION)
+// 6. TEAMS & TEMPLATES (ROLE-BASED ISOLATION & SCOPING)
 // =========================================================================
 apiRouter.get('/teams', requireAuth, (req: Request, res: Response) => {
-  let teams: Array<any>;
+  const { officeId, roleFilter, staffId } = req.query;
+
+  let baseQuery = `
+    SELECT t.*,
+           u.full_name as owner_name,
+           u.email as owner_email,
+           u.role as owner_role,
+           u.assigned_location as owner_location,
+           u.assigned_admin_id as owner_admin_id,
+           mgr.id as manager_id,
+           mgr.full_name as manager_name,
+           COALESCE(mgr.assigned_location, 'Head Office') as office_name
+    FROM teams t
+    LEFT JOIN users u ON t.owner_user_id = u.id
+    LEFT JOIN users mgr ON (
+      CASE 
+        WHEN u.role = 'secondary_admin' THEN u.id
+        WHEN u.assigned_admin_id IS NOT NULL THEN u.assigned_admin_id
+        ELSE (SELECT secondary_admin_id FROM secondary_admin_assignments WHERE staff_user_id = u.id LIMIT 1)
+      END
+    ) = mgr.id
+    WHERE t.status = 'active'
+  `;
+
+  const params: any[] = [];
+
   if (isMasterAdmin(req.user)) {
-    teams = db.prepare("SELECT * FROM teams WHERE status = 'active' ORDER BY name ASC").all() as Array<any>;
+    // Master Admin: Can filter office-wise, admins/role-wise, and staff-wise
+    if (officeId && officeId !== 'all') {
+      if (officeId === 'head_office') {
+        baseQuery += ` AND (u.role IN ('master_admin', 'admin') OR (mgr.id IS NULL AND u.role != 'secondary_admin'))`;
+      } else {
+        baseQuery += ` AND (mgr.id = ? OR t.owner_user_id = ?)`;
+        params.push(officeId, officeId);
+      }
+    }
+    if (roleFilter && roleFilter !== 'all') {
+      if (roleFilter === 'master_admin') {
+        baseQuery += ` AND u.role IN ('master_admin', 'admin')`;
+      } else {
+        baseQuery += ` AND u.role = ?`;
+        params.push(roleFilter);
+      }
+    }
+    if (staffId && staffId !== 'all') {
+      baseQuery += ` AND t.owner_user_id = ?`;
+      params.push(staffId);
+    }
   } else if (isSecondaryAdmin(req.user)) {
-    // Secondary admin sees shared teams, their owned teams, or teams owned by their assigned staff
-    teams = db.prepare(`
-      SELECT * FROM teams
-      WHERE status = 'active' AND (
-        is_shared = 1 OR
-        owner_user_id = ? OR
-        owner_user_id IN (SELECT staff_user_id FROM secondary_admin_assignments WHERE secondary_admin_id = ?)
-      )
-      ORDER BY name ASC
-    `).all(req.user!.id, req.user!.id) as Array<any>;
+    // Secondary Admin: Sees their own teams or teams created by their assigned staff
+    baseQuery += ` AND (
+      t.owner_user_id = ? OR
+      t.owner_user_id IN (SELECT staff_user_id FROM secondary_admin_assignments WHERE secondary_admin_id = ?) OR
+      t.owner_user_id IN (SELECT id FROM users WHERE assigned_admin_id = ?)
+    )`;
+    params.push(req.user!.id, req.user!.id, req.user!.id);
+
+    // Secondary Admin can filter their view by specific staff member
+    if (staffId && staffId !== 'all') {
+      baseQuery += ` AND t.owner_user_id = ?`;
+      params.push(staffId);
+    }
   } else {
-    // Staff see their own owned teams or shared teams
-    teams = db.prepare(`
-      SELECT * FROM teams
-      WHERE status = 'active' AND (is_shared = 1 OR owner_user_id = ?)
-      ORDER BY name ASC
-    `).all(req.user!.id) as Array<any>;
+    // Staff: STRICT ROLE ISOLATION - only sees teams created by this staff member
+    baseQuery += ` AND t.owner_user_id = ?`;
+    params.push(req.user!.id);
   }
+
+  baseQuery += ` ORDER BY t.name ASC`;
+
+  const teams = db.prepare(baseQuery).all(...params) as Array<any>;
 
   const teamIds = teams.map(t => t.id);
   let roles: Array<any> = [];
@@ -1432,8 +1481,15 @@ apiRouter.put('/teams/:id', requireAuth, (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Team not found.' });
   }
 
-  // Check ownership
-  if (!isMasterAdmin(req.user) && currentTeam.owner_user_id !== req.user!.id) {
+  // Check ownership / role-based modification permission
+  const canModify = isMasterAdmin(req.user) ||
+    currentTeam.owner_user_id === req.user!.id ||
+    (isSecondaryAdmin(req.user) && Boolean(
+      db.prepare('SELECT 1 FROM secondary_admin_assignments WHERE secondary_admin_id = ? AND staff_user_id = ?').get(req.user!.id, currentTeam.owner_user_id) ||
+      db.prepare('SELECT 1 FROM users WHERE id = ? AND assigned_admin_id = ?').get(currentTeam.owner_user_id, req.user!.id)
+    ));
+
+  if (!canModify) {
     return res.status(403).json({ error: 'You do not have permission to modify this team.' });
   }
 
@@ -4100,7 +4156,18 @@ apiRouter.get('/worksites', requireAuth, (req: Request, res: Response) => {
   const pendingRequests = db.prepare("SELECT * FROM geofence_change_requests WHERE entity_type = 'worksite' AND status = 'pending'").all() as any[];
   const pendingByEntityId = new Map(pendingRequests.map(r => [r.entity_id, r]));
 
-  const formatted = worksites.map(ws => ({
+  // Deduplicate by normalized worksite name as a defensive guarantee
+  const uniqueWorksites: any[] = [];
+  const seenNames = new Set<string>();
+  for (const ws of worksites) {
+    const key = (ws.name || '').trim().toLowerCase();
+    if (!seenNames.has(key)) {
+      seenNames.add(key);
+      uniqueWorksites.push(ws);
+    }
+  }
+
+  const formatted = uniqueWorksites.map(ws => ({
     ...ws,
     assignedTeams: JSON.parse(ws.assigned_teams_json || '[]'),
     assignedStaff: JSON.parse(ws.assigned_staff_json || '[]'),
@@ -4113,6 +4180,13 @@ apiRouter.post('/worksites', requireAuth, requireStaffOrAdmin, (req: Request, re
   const { name, projectName, address, latitude, longitude, allowedRadiusMeters, accuracyThresholdMeters, assignedTeams, assignedStaff, staffRadiusMeters, reason, secondaryAdminId, officeName } = req.body;
   if (!name || !projectName || latitude === undefined || longitude === undefined) {
     return res.status(400).json({ error: 'Name, project name, latitude, and longitude are required.' });
+  }
+
+  // Prevent creation of duplicate worksites with identical names
+  const normName = name.trim().toLowerCase();
+  const existingDup = db.prepare('SELECT id FROM worksites WHERE LOWER(TRIM(name)) = ?').get(normName) as any;
+  if (existingDup) {
+    return res.status(400).json({ error: `A worksite named "${name.trim()}" already exists. Please select or edit the existing worksite.` });
   }
 
   const id = `ws-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;

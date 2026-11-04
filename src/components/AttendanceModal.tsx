@@ -729,9 +729,122 @@ export function AttendanceModal({
                 No labour categories assigned. Click &quot;Add Category&quot; to add masons, helpers, etc.
               </div>
             ) : (
-              <div className="space-y-2">
-                <div className="border border-[#696969]/20 rounded-xl overflow-x-auto shadow-2xs">
-                  <table className="w-full min-w-[480px] text-xs">
+              <div className="space-y-3">
+                {/* Mobile Responsive Cards (< sm screens) */}
+                <div className="block sm:hidden space-y-2.5">
+                  {lines.map((line, idx) => {
+                    const catGpsCount = teamGpsAttendees.filter(
+                      (a) => selectedGpsAttendeeIds.includes(a.id) && (a.labour_category_id === line.categoryId || (!a.labour_category_id && idx === 0))
+                    ).length;
+
+                    return (
+                      <div key={`mob-${idx}`} className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <CustomSelect
+                              disabled={isSubmitting}
+                              value={line.categoryId}
+                              onChange={(val) => {
+                                const cId = String(val);
+                                const selectedCat = categories.find((c) => c.id === cId);
+                                updateLine(idx, 'categoryId', cId);
+                                if (selectedCat) {
+                                  updateLine(idx, 'categoryName', selectedCat.name);
+                                  updateLine(idx, 'rate', selectedCat.default_rate);
+                                }
+                              }}
+                              options={categories.map((c) => ({
+                                value: c.id,
+                                label: c.name,
+                                sublabel: `${formatINR(c.default_rate)}/day`,
+                              }))}
+                              placeholder="Select category..."
+                              size="sm"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            disabled={isSubmitting}
+                            onClick={() => removeLine(idx)}
+                            className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
+                            title="Remove category"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {catGpsCount > 0 && (
+                          <div className="flex items-center space-x-1 text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-1 rounded-md">
+                            <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>{catGpsCount} self-marked via GPS</span>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100 items-end">
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Workers</label>
+                            <input
+                              type="number"
+                              min="0"
+                              disabled={isSubmitting}
+                              value={line.count === 0 ? '' : line.count}
+                              placeholder="0"
+                              onChange={(e) => updateLine(idx, 'count', e.target.value)}
+                              className="w-full text-center border border-[#696969]/30 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#014025]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Rate (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              disabled={isSubmitting}
+                              value={line.rate}
+                              onChange={(e) => updateLine(idx, 'rate', e.target.value)}
+                              className="w-full text-right border border-[#696969]/30 rounded-lg px-2 py-1.5 text-xs font-mono text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#014025]"
+                            />
+                          </div>
+                          <div className="text-right">
+                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Amount (₹)</label>
+                            <div className="h-[31px] flex items-center justify-end px-2 bg-emerald-50/80 border border-emerald-200/70 rounded-lg font-mono font-bold text-xs text-[#014025]">
+                              {formatINR(line.finalAmount)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {line.isOverridden && (
+                          <div className="p-2 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800 space-y-1">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span>Rate Override:</span>
+                              <div className="flex items-center space-x-1">
+                                <span>₹</span>
+                                <input
+                                  type="number"
+                                  disabled={isSubmitting}
+                                  value={line.finalAmount}
+                                  onChange={(e) => updateLine(idx, 'finalAmount', Number(e.target.value) || 0)}
+                                  className="w-20 border border-amber-300 rounded px-1.5 py-0.5 text-xs font-mono font-bold bg-white text-[#014025]"
+                                />
+                              </div>
+                            </div>
+                            <input
+                              type="text"
+                              disabled={isSubmitting}
+                              placeholder="Mandatory reason for override"
+                              value={line.overrideReason || ''}
+                              onChange={(e) => updateLine(idx, 'overrideReason', e.target.value)}
+                              className="w-full border border-amber-200 rounded px-2 py-1 text-xs bg-white text-[#014025]"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Table View (>= sm screens) */}
+                <div className="hidden sm:block border border-[#696969]/20 rounded-xl overflow-x-auto shadow-2xs">
+                  <table className="w-full text-xs">
                     <thead className="bg-[#696969]/10 text-[#014025] border-b border-[#696969]/20 font-semibold">
                       <tr>
                         <th className="py-2.5 px-3 text-left">Category</th>
