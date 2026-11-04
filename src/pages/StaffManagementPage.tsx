@@ -21,12 +21,15 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { formatDateDisplay } from '../lib/dateUtils';
 import { CustomSelect } from '../components/CustomSelect';
 
 export function StaffManagementPage() {
   const { user: currentUser, isMasterAdmin, isSecondaryAdmin } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [users, setUsers] = useState<any[]>([]);
+  const [worksites, setWorksites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -39,6 +42,8 @@ export function StaffManagementPage() {
   const [newPassword, setNewPassword] = useState('');
   const [newDesignation, setNewDesignation] = useState('');
   const [newLocation, setNewLocation] = useState('');
+  const [newAssignedWorksiteId, setNewAssignedWorksiteId] = useState('');
+  const [newRadiusMeters, setNewRadiusMeters] = useState<number | string>(150);
   const [newAssignedAdminId, setNewAssignedAdminId] = useState('');
 
   // Password reset state
@@ -53,6 +58,8 @@ export function StaffManagementPage() {
     fullName: '',
     designation: '',
     assignedLocation: '',
+    assignedWorksiteId: '',
+    allowedRadiusMeters: 150 as number | string,
     mobileNumber: '',
   });
   const [isEditing, setIsEditing] = useState(false);
@@ -91,8 +98,12 @@ export function StaffManagementPage() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const list = await api.users.list();
+      const [list, wsList] = await Promise.all([
+        api.users.list(),
+        api.worksites.list().catch(() => []),
+      ]);
       setUsers(list);
+      setWorksites(wsList || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load user accounts');
     } finally {
@@ -118,20 +129,27 @@ export function StaffManagementPage() {
         password: newPassword,
         designation: newDesignation.trim() || undefined,
         assignedLocation: newLocation.trim() || undefined,
+        assignedWorksiteId: newRole === 'staff' ? (newAssignedWorksiteId || undefined) : undefined,
+        allowedRadiusMeters: newRole === 'staff' ? (Number(newRadiusMeters) || 150) : undefined,
         assignedAdminId: newAssignedAdminId || undefined,
       });
 
-      setSuccess(`Account for ${newFullName} created successfully as ${newRole.replace('_', ' ')}.`);
+      const succMsg = `Account for ${newFullName} created successfully as ${newRole.replace('_', ' ')}.`;
+      setSuccess(succMsg);
+      showSuccess(succMsg, 'Account Created');
       setShowAddForm(false);
       setNewEmail('');
       setNewFullName('');
       setNewPassword('');
       setNewDesignation('');
       setNewLocation('');
+      setNewAssignedWorksiteId('');
+      setNewRadiusMeters(150);
       setNewAssignedAdminId('');
       loadUsers();
     } catch (err: any) {
       setError(err.message || 'Failed to create user account');
+      showError(err.message || 'Failed to create user account');
     }
   };
 
@@ -142,15 +160,16 @@ export function StaffManagementPage() {
     }
     try {
       await api.users.update(targetUser.id, { status: newStatus });
+      showSuccess(`Account for ${targetUser.full_name} is now ${newStatus}.`);
       loadUsers();
     } catch (err: any) {
-      alert(err.message || 'Failed to update user status');
+      showError(err.message || 'Failed to update user status');
     }
   };
 
   const handleResetPassword = async () => {
     if (!resetPasswordVal || resetPasswordVal.length < 6) {
-      alert('Password must be at least 6 characters long.');
+      showError('Password must be at least 6 characters long.');
       return;
     }
     if (!resettingUserId) return;
@@ -158,11 +177,11 @@ export function StaffManagementPage() {
     setIsResetting(true);
     try {
       await api.users.resetPassword(resettingUserId, resetPasswordVal);
-      alert('Password updated successfully.');
+      showSuccess('Password updated successfully.');
       setResettingUserId(null);
       setResetPasswordVal('');
     } catch (err: any) {
-      alert(err.message || 'Failed to reset password.');
+      showError(err.message || 'Failed to reset password.');
     } finally {
       setIsResetting(false);
     }
@@ -173,17 +192,27 @@ export function StaffManagementPage() {
     if (!editingStaff) return;
     setIsEditing(true);
     try {
-      await api.users.update(editingStaff.id, {
+      const payload: any = {
         fullName: editForm.fullName.trim(),
         designation: editForm.designation.trim() || undefined,
-        assignedLocation: editForm.assignedLocation.trim() || undefined,
         mobileNumber: editForm.mobileNumber.trim() || undefined,
-      });
+      };
+
+      // Worksite location and radius can ONLY be modified by Master Admin
+      if (isMasterAdmin) {
+        payload.assignedLocation = editForm.assignedLocation.trim() || undefined;
+        payload.assignedWorksiteId = editForm.assignedWorksiteId || undefined;
+        payload.allowedRadiusMeters = Number(editForm.allowedRadiusMeters) || 150;
+      }
+
+      await api.users.update(editingStaff.id, payload);
       setEditingStaff(null);
-      setSuccess(`Account details for ${editForm.fullName} updated successfully.`);
+      const succMsg = `Account details for ${editForm.fullName} updated successfully.`;
+      setSuccess(succMsg);
+      showSuccess(succMsg, 'Staff Updated');
       loadUsers();
     } catch (err: any) {
-      alert(err.message || 'Failed to update account details.');
+      showError(err.message || 'Failed to update account details.');
     } finally {
       setIsEditing(false);
     }
@@ -307,18 +336,7 @@ export function StaffManagementPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#014025] mb-1">Assigned Site / Location</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Lumia Building Site"
-                  value={newLocation}
-                  onChange={(e) => setNewLocation(e.target.value)}
-                  className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#456B5A]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#014025] mb-1">Initial Password</label>
+                <label className="block text-xs font-semibold text-[#014025] mb-1">Initial Password <span className="text-red-500">*</span></label>
                 <input
                   type="password"
                   required
@@ -328,7 +346,111 @@ export function StaffManagementPage() {
                   className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#456B5A]"
                 />
               </div>
+
+              {newRole !== 'staff' && (
+                <div>
+                  <label className="block text-xs font-semibold text-[#014025] mb-1">Assigned Office / Branch</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Head Office (Central)"
+                    value={newLocation}
+                    onChange={(e) => setNewLocation(e.target.value)}
+                    className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#456B5A]"
+                  />
+                </div>
+              )}
             </div>
+
+            {/* Staff Attendance Location & Geofence Range Controls (Master Admin Only) */}
+            {newRole === 'staff' && (
+              <div className="p-3.5 bg-emerald-50/60 border border-emerald-200/80 rounded-xl space-y-3">
+                <div className="flex items-center space-x-2 text-emerald-950 font-bold text-xs pb-1 border-b border-emerald-200/60">
+                  <MapPin className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>Staff Attendance Worksite & Geofence Range (Admin Managed)</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <CustomSelect
+                      label="Select Worksite / Project Location"
+                      value={newAssignedWorksiteId}
+                      onChange={(val) => {
+                        const wsId = String(val);
+                        setNewAssignedWorksiteId(wsId);
+                        const ws = worksites.find((w) => w.id === wsId);
+                        if (ws) {
+                          setNewLocation(ws.name);
+                          setNewRadiusMeters(ws.staff_radius_meters || ws.allowed_radius_meters || 150);
+                        }
+                      }}
+                      options={[
+                        { value: '', label: '-- Custom Location / No Fixed Site --' },
+                        ...worksites.map((ws) => ({
+                          value: ws.id,
+                          label: ws.name,
+                          sublabel: `${ws.address || ws.project_name} (Site Radius: ${ws.staff_radius_meters || ws.allowed_radius_meters || 150}m)`,
+                        })),
+                      ]}
+                      placeholder="Choose worksite..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#014025] mb-1">
+                      Location Display Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Lumia Building Main Site"
+                      value={newLocation}
+                      onChange={(e) => setNewLocation(e.target.value)}
+                      className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#456B5A] bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
+                    <label className="block text-xs font-semibold text-[#014025]">
+                      Staff Attendance Geofence Range (Radius in Meters)
+                    </label>
+                    <span className="text-[11px] text-emerald-800 font-mono font-bold">
+                      Current Range: {newRadiusMeters || 150} meters
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="number"
+                      min={20}
+                      max={5000}
+                      step={10}
+                      value={newRadiusMeters}
+                      onChange={(e) => setNewRadiusMeters(e.target.value)}
+                      className="w-28 border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#456B5A] bg-white font-mono"
+                    />
+                    <div className="flex flex-wrap gap-1">
+                      {[50, 100, 150, 200, 250, 500].map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setNewRadiusMeters(r)}
+                          className={`px-2.5 py-1 text-[11px] rounded-md font-semibold transition-all cursor-pointer ${
+                            Number(newRadiusMeters) === r
+                              ? 'bg-[#014025] text-white shadow-xs'
+                              : 'bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {r}m
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 mt-1">
+                    Allowed GPS radius from worksite center for this staff member's mobile check-in & 30-min spot verification.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {newRole === 'staff' && secondaryAdminsList.length > 0 && (
               <div className="w-full sm:w-1/2">
@@ -417,7 +539,18 @@ export function StaffManagementPage() {
                         {isMaster ? 'Master Admin' : isSecAdmin ? 'Secondary Admin' : 'Staff'}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-[#696969]">{u.assigned_location || 'General Site'}</td>
+                    <td className="py-3 px-3 text-[#696969]">
+                      <div className="font-semibold text-[#014025]">
+                        {u.assigned_worksite_name || u.assigned_location || 'General Site'}
+                      </div>
+                      {u.role === 'staff' && (
+                        <div className="mt-0.5">
+                          <span className="inline-flex items-center text-[10px] bg-emerald-50 text-emerald-800 font-mono px-1.5 py-0.5 rounded border border-emerald-200">
+                            Range: {u.allowed_radius_meters || 150}m
+                          </span>
+                        </div>
+                      )}
+                    </td>
                     <td className="py-3 px-3 text-center">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -439,6 +572,8 @@ export function StaffManagementPage() {
                                 fullName: u.full_name,
                                 designation: u.designation || '',
                                 assignedLocation: u.assigned_location || '',
+                                assignedWorksiteId: u.assigned_worksite_id || '',
+                                allowedRadiusMeters: u.allowed_radius_meters || 150,
                                 mobileNumber: u.mobile_number || '',
                               });
                             }}
@@ -553,7 +688,7 @@ export function StaffManagementPage() {
       {/* Edit Staff Modal */}
       {editingStaff && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-[#696969]/20 w-full max-w-md overflow-hidden">
+          <div className="bg-white rounded-xl shadow-2xl border border-[#696969]/20 w-full max-w-lg overflow-hidden">
             <div className="px-5 py-3.5 bg-[#014025] text-white font-bold text-sm flex items-center justify-between">
               <span className="flex items-center space-x-2">
                 <Pencil className="w-4 h-4" />
@@ -589,16 +724,115 @@ export function StaffManagementPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#014025] mb-1">Assigned Site / Location</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Lumia Infrastructure Phase 2"
-                  value={editForm.assignedLocation}
-                  onChange={(e) => setEditForm({ ...editForm, assignedLocation: e.target.value })}
-                  className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:ring-1 focus:ring-[#456B5A]"
-                />
-              </div>
+              {/* Worksite location and range controls: Master Admin ONLY */}
+              {isMasterAdmin ? (
+                <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-3">
+                  <div className="flex items-center space-x-2 text-emerald-950 font-bold text-xs pb-1 border-b border-emerald-200/60">
+                    <MapPin className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>Attendance Worksite & Geofence Range (Admin Managed)</span>
+                  </div>
+
+                  <div>
+                    <CustomSelect
+                      label="Assigned Worksite"
+                      value={editForm.assignedWorksiteId}
+                      onChange={(val) => {
+                        const wsId = String(val);
+                        const ws = worksites.find((w) => w.id === wsId);
+                        setEditForm({
+                          ...editForm,
+                          assignedWorksiteId: wsId,
+                          assignedLocation: ws ? ws.name : editForm.assignedLocation,
+                          allowedRadiusMeters: ws ? (ws.staff_radius_meters || ws.allowed_radius_meters || 150) : editForm.allowedRadiusMeters,
+                        });
+                      }}
+                      options={[
+                        { value: '', label: '-- Custom Location / No Fixed Site --' },
+                        ...worksites.map((ws) => ({
+                          value: ws.id,
+                          label: ws.name,
+                          sublabel: `${ws.address || ws.project_name} (Site Radius: ${ws.staff_radius_meters || ws.allowed_radius_meters || 150}m)`,
+                        })),
+                      ]}
+                      placeholder="Choose worksite..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#014025] mb-1">
+                      Assigned Site / Location Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Lumia Infrastructure Phase 2"
+                      value={editForm.assignedLocation}
+                      onChange={(e) => setEditForm({ ...editForm, assignedLocation: e.target.value })}
+                      className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:ring-1 focus:ring-[#456B5A] bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <label className="block text-xs font-semibold text-[#014025]">
+                        Attendance Geofence Radius (Meters)
+                      </label>
+                      <span className="text-[11px] text-emerald-800 font-mono font-bold">
+                        {editForm.allowedRadiusMeters || 150} meters
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        min={20}
+                        max={5000}
+                        step={10}
+                        value={editForm.allowedRadiusMeters}
+                        onChange={(e) => setEditForm({ ...editForm, allowedRadiusMeters: e.target.value })}
+                        className="w-28 border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:ring-1 focus:ring-[#456B5A] bg-white font-mono"
+                      />
+                      <div className="flex flex-wrap gap-1">
+                        {[50, 100, 150, 200, 250, 500].map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => setEditForm({ ...editForm, allowedRadiusMeters: r })}
+                            className={`px-2.5 py-1 text-[11px] rounded-md font-semibold transition-all cursor-pointer ${
+                              Number(editForm.allowedRadiusMeters) === r
+                                ? 'bg-[#014025] text-white shadow-xs'
+                                : 'bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-100'
+                            }`}
+                          >
+                            {r}m
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-emerald-800 mt-1">
+                      Allowed distance from worksite center for mobile GPS check-in and 30-min spot checks.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* Read-only view for Secondary Admins */
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                    <span className="flex items-center space-x-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Assigned Worksite & Geofence Range</span>
+                    </span>
+                    <span className="flex items-center space-x-1 text-[10px] text-amber-800 font-medium bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      <Lock className="w-3 h-3" />
+                      <span>Admin Only</span>
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-800 font-medium">
+                    {editingStaff.assigned_worksite_name || editingStaff.assigned_location || 'General Site'}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Geofence Range: <span className="font-semibold text-emerald-700 font-mono">{editingStaff.allowed_radius_meters || 150}m</span> (Only Master Admin can modify location and range).
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-[#014025] mb-1">Mobile Number</label>

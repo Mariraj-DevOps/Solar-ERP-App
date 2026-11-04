@@ -568,6 +568,7 @@ function applyMigrations() {
   tryAddCol('users', 'daily_rate REAL DEFAULT 0');
   tryAddCol('users', 'hourly_rate REAL DEFAULT 0');
   tryAddCol('users', 'is_attendance_participant INTEGER DEFAULT 0');
+  tryAddCol('users', 'allowed_radius_meters REAL DEFAULT NULL');
   tryAddCol('users', 'created_by TEXT');
 
   // teams data isolation & attendance method

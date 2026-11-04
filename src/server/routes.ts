@@ -35,6 +35,7 @@ export interface AuthUser {
   role: UserRole;
   designation?: string;
   assignedLocation?: string;
+  allowedRadiusMeters?: number;
   mobileNumber?: string;
   maskedAadhaar?: string;
   assignedTeamId?: string;
@@ -148,8 +149,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
     const userRow = db.prepare(`
       SELECT id, email, full_name, role, status, designation, assigned_location,
-             mobile_number, masked_aadhaar, assigned_team_id, assigned_worksite_id,
-             assigned_supervisor_id, is_attendance_participant, daily_rate, hourly_rate
+             allowed_radius_meters, mobile_number, masked_aadhaar, assigned_team_id,
+             assigned_worksite_id, assigned_supervisor_id, is_attendance_participant,
+             daily_rate, hourly_rate
       FROM users WHERE id = ?
     `).get(decoded.id) as any;
 
@@ -164,6 +166,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
       role: userRow.role,
       designation: userRow.designation,
       assignedLocation: userRow.assigned_location,
+      allowedRadiusMeters: userRow.allowed_radius_meters != null ? Number(userRow.allowed_radius_meters) : undefined,
       mobileNumber: userRow.mobile_number,
       maskedAadhaar: userRow.masked_aadhaar,
       assignedTeamId: userRow.assigned_team_id,
@@ -493,15 +496,27 @@ apiRouter.get('/auth/me', requireAuth, (req: Request, res: Response) => {
 // =========================================================================
 apiRouter.get('/users', requireAuth, (req: Request, res: Response) => {
   if (isMasterAdmin(req.user)) {
-    const users = db.prepare('SELECT id, email, full_name, role, status, designation, assigned_location, assigned_admin_id, mobile_number, created_at, updated_at FROM users ORDER BY created_at ASC').all();
+    const users = db.prepare(`
+      SELECT u.id, u.email, u.full_name, u.role, u.status, u.designation, u.assigned_location,
+             u.assigned_worksite_id, u.allowed_radius_meters, u.assigned_admin_id, u.mobile_number,
+             u.created_at, u.updated_at,
+             w.name AS assigned_worksite_name
+      FROM users u
+      LEFT JOIN worksites w ON u.assigned_worksite_id = w.id
+      ORDER BY u.created_at ASC
+    `).all();
     return res.json(users);
   }
 
   if (isSecondaryAdmin(req.user)) {
     // Secondary admin ONLY sees staff accounts assigned to them - NOT any admins
     const assignedStaff = db.prepare(`
-      SELECT u.id, u.email, u.full_name, u.role, u.status, u.designation, u.assigned_location, u.assigned_admin_id, u.mobile_number, u.created_at, u.updated_at
+      SELECT u.id, u.email, u.full_name, u.role, u.status, u.designation, u.assigned_location,
+             u.assigned_worksite_id, u.allowed_radius_meters, u.assigned_admin_id, u.mobile_number,
+             u.created_at, u.updated_at,
+             w.name AS assigned_worksite_name
       FROM users u
+      LEFT JOIN worksites w ON u.assigned_worksite_id = w.id
       WHERE u.role = 'staff' AND (
         u.assigned_admin_id = ? OR
         u.id IN (SELECT staff_user_id FROM secondary_admin_assignments WHERE secondary_admin_id = ?)
@@ -512,12 +527,19 @@ apiRouter.get('/users', requireAuth, (req: Request, res: Response) => {
   }
 
   // Staff sees only themselves
-  const user = db.prepare('SELECT id, email, full_name, role, status, designation, assigned_location, created_at, updated_at FROM users WHERE id = ?').get(req.user!.id);
+  const user = db.prepare(`
+    SELECT u.id, u.email, u.full_name, u.role, u.status, u.designation, u.assigned_location,
+           u.assigned_worksite_id, u.allowed_radius_meters, u.created_at, u.updated_at,
+           w.name AS assigned_worksite_name
+    FROM users u
+    LEFT JOIN worksites w ON u.assigned_worksite_id = w.id
+    WHERE u.id = ?
+  `).get(req.user!.id);
   res.json(user ? [user] : []);
 });
 
 apiRouter.post('/users', requireAuth, requireMasterAdmin, (req: Request, res: Response) => {
-  const { email, fullName, role, password, designation, assignedLocation, assignedAdminId } = req.body;
+  const { email, fullName, role, password, designation, assignedLocation, assignedWorksiteId, allowedRadiusMeters, assignedAdminId } = req.body;
   if (!email || !fullName || !password) {
     return res.status(400).json({ error: 'Email, full name, and password are required.' });
   }
@@ -531,11 +553,35 @@ apiRouter.post('/users', requireAuth, requireMasterAdmin, (req: Request, res: Re
   const now = new Date().toISOString();
   const passwordHash = bcrypt.hashSync(password, 10);
   const userRole = (role === 'master_admin' || role === 'secondary_admin' || role === 'staff') ? role : 'staff';
+  const radius = (userRole === 'staff' && allowedRadiusMeters) ? Number(allowedRadiusMeters) : null;
+  const isParticipant = userRole === 'staff' ? 1 : 0;
 
   db.prepare(`
-    INSERT INTO users (id, email, password_hash, full_name, role, status, designation, assigned_location, assigned_admin_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)
-  `).run(id, email.toLowerCase().trim(), passwordHash, fullName.trim(), userRole, designation || null, assignedLocation || null, assignedAdminId || null, now, now);
+    INSERT INTO users (
+      id, email, password_hash, full_name, role, status, designation,
+      assigned_location, assigned_worksite_id, allowed_radius_meters,
+      is_attendance_participant, assigned_admin_id, created_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id, email.toLowerCase().trim(), passwordHash, fullName.trim(), userRole,
+    designation || null, assignedLocation || null, assignedWorksiteId || null,
+    radius, isParticipant, assignedAdminId || null, now, now
+  );
+
+  if (assignedWorksiteId && userRole === 'staff') {
+    try {
+      const ws = db.prepare('SELECT assigned_staff_json FROM worksites WHERE id = ?').get(assignedWorksiteId) as any;
+      if (ws) {
+        let staffList: string[] = [];
+        try { staffList = JSON.parse(ws.assigned_staff_json || '[]'); } catch {}
+        if (!staffList.includes(id)) {
+          staffList.push(id);
+          db.prepare('UPDATE worksites SET assigned_staff_json = ?, updated_at = ? WHERE id = ?').run(JSON.stringify(staffList), now, assignedWorksiteId);
+        }
+      }
+    } catch {}
+  }
 
   if (assignedAdminId && userRole === 'staff') {
     db.prepare(`
@@ -552,7 +598,7 @@ apiRouter.post('/users', requireAuth, requireMasterAdmin, (req: Request, res: Re
     action: 'CREATE_USER',
     entityType: 'users',
     entityId: id,
-    newValues: { email, fullName, role: userRole, designation, assignedLocation },
+    newValues: { email, fullName, role: userRole, designation, assignedLocation, assignedWorksiteId, allowedRadiusMeters: radius },
   });
 
   triggerPgSync(500);
@@ -562,7 +608,7 @@ apiRouter.post('/users', requireAuth, requireMasterAdmin, (req: Request, res: Re
 
 apiRouter.patch('/users/:id', requireAuth, requireStaffOrAdmin, (req: Request, res: Response) => {
   const { id } = req.params;
-  const { fullName, role, status, password, designation, assignedLocation, assignedAdminId, mobileNumber } = req.body;
+  const { fullName, role, status, password, designation, assignedLocation, assignedWorksiteId, allowedRadiusMeters, assignedAdminId, mobileNumber } = req.body;
 
   const targetUser = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as {
     id: string;
@@ -571,6 +617,9 @@ apiRouter.patch('/users/:id', requireAuth, requireStaffOrAdmin, (req: Request, r
     role: string;
     status: string;
     assigned_admin_id: string | null;
+    assigned_worksite_id: string | null;
+    assigned_location: string | null;
+    allowed_radius_meters: number | null;
   } | undefined;
 
   if (!targetUser) {
@@ -590,6 +639,11 @@ apiRouter.patch('/users/:id', requireAuth, requireStaffOrAdmin, (req: Request, r
     );
     if (!isAssigned) {
       return res.status(403).json({ error: 'Access denied: You can only edit staff accounts assigned to you.' });
+    }
+
+    // Secondary admin CANNOT modify location or radius - STRICTLY Master Admin only!
+    if (assignedWorksiteId !== undefined || allowedRadiusMeters !== undefined || (assignedLocation !== undefined && assignedLocation !== targetUser.assigned_location)) {
+      return res.status(403).json({ error: 'Access denied: Only Master Administrator can change staff worksite location and attendance radius.' });
     }
 
     // Secondary admin CANNOT deactivate staff ("secondary admin can view and edit staffs not deactivate")
@@ -638,10 +692,49 @@ apiRouter.patch('/users/:id', requireAuth, requireStaffOrAdmin, (req: Request, r
     updates.push('designation = ?');
     params.push(designation);
   }
-  if (assignedLocation !== undefined) {
-    updates.push('assigned_location = ?');
-    params.push(assignedLocation);
+
+  // Worksite location and range - Master Admin ONLY
+  if (isMasterAdmin(req.user)) {
+    if (assignedLocation !== undefined) {
+      updates.push('assigned_location = ?');
+      params.push(assignedLocation ? assignedLocation.trim() : null);
+    }
+    if (assignedWorksiteId !== undefined) {
+      updates.push('assigned_worksite_id = ?');
+      const newWsId = assignedWorksiteId ? assignedWorksiteId.trim() : null;
+      params.push(newWsId);
+
+      // Reconcile worksite assigned_staff_json
+      const oldWsId = targetUser.assigned_worksite_id;
+      if (oldWsId && oldWsId !== newWsId) {
+        try {
+          const oldWs = db.prepare('SELECT assigned_staff_json FROM worksites WHERE id = ?').get(oldWsId) as any;
+          if (oldWs) {
+            let staffList: string[] = JSON.parse(oldWs.assigned_staff_json || '[]');
+            staffList = staffList.filter((sId) => sId !== id);
+            db.prepare('UPDATE worksites SET assigned_staff_json = ?, updated_at = datetime("now") WHERE id = ?').run(JSON.stringify(staffList), oldWsId);
+          }
+        } catch {}
+      }
+      if (newWsId && newWsId !== oldWsId) {
+        try {
+          const newWs = db.prepare('SELECT assigned_staff_json FROM worksites WHERE id = ?').get(newWsId) as any;
+          if (newWs) {
+            let staffList: string[] = JSON.parse(newWs.assigned_staff_json || '[]');
+            if (!staffList.includes(id)) {
+              staffList.push(id);
+              db.prepare('UPDATE worksites SET assigned_staff_json = ?, updated_at = datetime("now") WHERE id = ?').run(JSON.stringify(staffList), newWsId);
+            }
+          }
+        } catch {}
+      }
+    }
+    if (allowedRadiusMeters !== undefined) {
+      updates.push('allowed_radius_meters = ?');
+      params.push(allowedRadiusMeters ? Number(allowedRadiusMeters) : null);
+    }
   }
+
   if (mobileNumber !== undefined) {
     updates.push('mobile_number = ?');
     params.push(mobileNumber ? mobileNumber.replace(/\D/g, '').slice(-10) : null);
@@ -3968,14 +4061,14 @@ apiRouter.post('/seed-sample-data', requireAuth, requireMasterAdmin, (req: Reque
 // =========================================================================
 apiRouter.get('/worksites', requireAuth, (req: Request, res: Response) => {
   const { secondaryAdminId } = req.query;
-  let query = 'SELECT * FROM worksites';
+  let query = "SELECT * FROM worksites WHERE name NOT LIKE '%Solar Plant Beta%' AND id NOT LIKE 'ws-test-%'";
   const params: any[] = [];
 
   if (isSecondaryAdmin(req.user)) {
-    query += ' WHERE secondary_admin_id = ?';
+    query += ' AND secondary_admin_id = ?';
     params.push(req.user!.id);
   } else if (secondaryAdminId && secondaryAdminId !== 'all') {
-    query += ' WHERE secondary_admin_id = ?';
+    query += ' AND secondary_admin_id = ?';
     params.push(secondaryAdminId);
   }
   query += ' ORDER BY name ASC';
@@ -4871,7 +4964,7 @@ apiRouter.post('/gps-attendance/check-in', requireAuth, (req: Request, res: Resp
 
   const acc = Number(accuracy) || 10;
   const maxAccuracy = worksite.accuracy_threshold_meters || 50;
-  const allowedRadius = worksite.allowed_radius_meters || 150;
+  const allowedRadius = (user as any).allowedRadiusMeters || (user.role === 'staff' && worksite.staff_radius_meters) || worksite.allowed_radius_meters || 150;
 
   let checkInStatus = 'valid_location';
   const exceptions: string[] = [];
@@ -4982,7 +5075,7 @@ apiRouter.post('/gps-attendance/check-out', requireAuth, (req: Request, res: Res
 
   const acc = Number(accuracy) || 10;
   const maxAccuracy = worksite?.accuracy_threshold_meters || 50;
-  const allowedRadius = worksite?.allowed_radius_meters || 150;
+  const allowedRadius = (user as any).allowedRadiusMeters || (user.role === 'staff' && worksite?.staff_radius_meters) || worksite?.allowed_radius_meters || 150;
 
   let checkOutStatus = 'valid_location';
   const exceptions: string[] = JSON.parse(activeRecord.exception_flags_json || '[]');
@@ -5664,12 +5757,9 @@ apiRouter.post('/verifications/:id/respond', requireAuth, (req: Request, res: Re
     });
   }
 
-  // Worksite lookup
-  let worksiteId = request.worksite_id;
-  if (!worksiteId) {
-    const user = db.prepare('SELECT assigned_worksite_id FROM users WHERE id = ?').get(req.user!.id) as any;
-    worksiteId = user?.assigned_worksite_id;
-  }
+  // Current user & worksite lookup
+  const currentUserRow = db.prepare('SELECT id, role, assigned_worksite_id, allowed_radius_meters FROM users WHERE id = ?').get(req.user!.id) as any;
+  let worksiteId = request.worksite_id || currentUserRow?.assigned_worksite_id;
   if (!worksiteId) {
     const firstWs = db.prepare("SELECT id FROM worksites WHERE status = 'active' LIMIT 1").get() as any;
     worksiteId = firstWs?.id;
@@ -5689,7 +5779,7 @@ apiRouter.post('/verifications/:id/respond', requireAuth, (req: Request, res: Re
 
   const acc = Number(accuracy) || 10;
   const maxAccuracy = worksite?.accuracy_threshold_meters || 50;
-  const allowedRadius = worksite?.allowed_radius_meters || 150;
+  const allowedRadius = currentUserRow?.allowed_radius_meters || (currentUserRow?.role === 'staff' && worksite?.staff_radius_meters) || worksite?.allowed_radius_meters || 150;
 
   let verificationStatus = 'valid_location';
   if (acc > maxAccuracy) {

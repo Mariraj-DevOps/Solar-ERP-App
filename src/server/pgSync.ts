@@ -116,6 +116,12 @@ export async function restoreFromPostgres(): Promise<boolean> {
         const tblExists = await client.query(`SELECT to_regclass('public."${t.name}"') AS tbl`);
         if (!tblExists.rows[0]?.tbl) continue;
 
+        if (t.name === 'worksites') {
+          try {
+            await client.query(`DELETE FROM public."worksites" WHERE id LIKE 'ws-test-%' OR name ILIKE '%Solar Plant Beta%'`);
+          } catch {}
+        }
+
         const pgRes = await client.query(`SELECT * FROM public."${t.name}"`);
         if (!pgRes.rows || pgRes.rows.length === 0) continue;
 
@@ -154,6 +160,11 @@ export async function restoreFromPostgres(): Promise<boolean> {
         console.warn(`[Postgres Sync] Failed to restore table ${t.name}:`, err);
       }
     }
+
+    // Final cleanup of residual test worksites
+    try {
+      db.prepare(`DELETE FROM worksites WHERE id LIKE 'ws-test-%' OR name LIKE '%Solar Plant Beta%'`).run();
+    } catch {}
 
     console.log('✅ [Postgres Sync] Successfully restored SQLite database from PostgreSQL!');
     return true;

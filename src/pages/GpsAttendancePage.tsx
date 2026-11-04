@@ -22,11 +22,13 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { api } from '../lib/api';
 import { CustomSelect } from '../components/CustomSelect';
 
 export function GpsAttendancePage() {
   const { user, isMasterAdmin, isAdminAny } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState<'records' | 'verifications' | 'participants' | 'reconciliation'>('records');
 
   // Attendance Records State
@@ -120,9 +122,10 @@ export function GpsAttendancePage() {
   const handleApprove = async (id: string) => {
     try {
       await api.gpsAttendance.approve(id);
+      showSuccess('Attendance record approved successfully.');
       await loadAll();
     } catch (err: any) {
-      alert(err.message || 'Failed to approve attendance.');
+      showError(err.message || 'Failed to approve attendance.');
     }
   };
 
@@ -132,9 +135,10 @@ export function GpsAttendancePage() {
     if (!reason || !reason.trim()) return;
     try {
       await api.gpsAttendance.reject(id, reason.trim());
+      showSuccess('Attendance record rejected.');
       await loadAll();
     } catch (err: any) {
-      alert(err.message || 'Failed to reject attendance.');
+      showError(err.message || 'Failed to reject attendance.');
     }
   };
 
@@ -142,7 +146,7 @@ export function GpsAttendancePage() {
   const handleSubmitOverride = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!overrideTarget || !overrideReason.trim()) {
-      alert('A mandatory reason is required for manual override.');
+      showError('A mandatory reason is required for manual override.');
       return;
     }
 
@@ -155,9 +159,10 @@ export function GpsAttendancePage() {
       });
       setOverrideTarget(null);
       setOverrideReason('');
+      showSuccess('Manual attendance override applied successfully.');
       await loadAll();
     } catch (err: any) {
-      alert(err.message || 'Failed to apply override.');
+      showError(err.message || 'Failed to apply override.');
     }
   };
 
@@ -173,10 +178,10 @@ export function GpsAttendancePage() {
       });
       setShowTriggerVerifModal(false);
       setVerifNotes('');
-      alert('30-Minute Random Attendance Verification request dispatched successfully.');
+      showSuccess('30-Minute Random Attendance Verification request dispatched successfully.', 'Spot Check Dispatched');
       await loadAll();
     } catch (err: any) {
-      alert(err.message || 'Failed to trigger verification request.');
+      showError(err.message || 'Failed to trigger verification request.');
     }
   };
 
@@ -184,7 +189,7 @@ export function GpsAttendancePage() {
   const handleAssignParticipant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!partUserId || !partSupervisorId) {
-      alert('Please select both participant and designated supervisor.');
+      showError('Please select both participant and designated supervisor.');
       return;
     }
 
@@ -196,9 +201,10 @@ export function GpsAttendancePage() {
         assignedWorksiteId: partWorksiteId || undefined,
       });
       setShowAssignPartModal(false);
+      showSuccess('Supervisor assignment saved successfully.');
       await loadAll();
     } catch (err: any) {
-      alert(err.message || 'Failed to assign supervisor.');
+      showError(err.message || 'Failed to assign supervisor.');
     }
   };
 
@@ -207,9 +213,10 @@ export function GpsAttendancePage() {
     if (!window.confirm('Remove this attendance supervisor assignment?')) return;
     try {
       await api.attendanceSupervisors.delete(id);
+      showSuccess('Supervisor assignment removed.');
       await loadAll();
     } catch (err: any) {
-      alert(err.message || 'Failed to remove assignment.');
+      showError(err.message || 'Failed to remove assignment.');
     }
   };
 

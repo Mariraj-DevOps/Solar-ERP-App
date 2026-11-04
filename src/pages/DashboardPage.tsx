@@ -516,7 +516,7 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
         const isCheckedOut = Boolean(staffTodayRecord?.check_out_time);
         const siteLat = assignedWorksite?.latitude || 12.9715987;
         const siteLng = assignedWorksite?.longitude || 77.5945627;
-        const allowedRadius = assignedWorksite?.allowed_radius_meters || assignedWorksite?.radius_meters || 150;
+        const allowedRadius = (user as any)?.allowedRadiusMeters || (user as any)?.allowed_radius_meters || assignedWorksite?.staff_radius_meters || assignedWorksite?.allowed_radius_meters || assignedWorksite?.radius_meters || 150;
         const distanceM = staffGpsPosition
           ? computeDistanceMeters(staffGpsPosition.latitude, staffGpsPosition.longitude, siteLat, siteLng)
           : null;

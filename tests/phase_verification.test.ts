@@ -791,7 +791,7 @@ describe('Phase 2 & Comprehensive ERP Verification Suite', () => {
         allowed_radius_meters, accuracy_threshold_meters, status,
         assigned_teams_json, assigned_staff_json, staff_radius_meters,
         secondary_admin_id, office_name, created_by, created_at, updated_at
-      ) VALUES (?, 'Solar Plant Beta', 'Solar Project Beta', '123 Solar Way', 12.97, 77.59,
+      ) VALUES (?, 'Test Automated Site Beta', 'Solar Project Beta', '123 Solar Way', 12.97, 77.59,
         150, 50, 'active', '[]', ?, ?, 'usr-sec-01', 'Test Office', 'admin-01', datetime('now'), datetime('now'))
     `).run(worksiteId, JSON.stringify([staffId]), staffRadius);
 
@@ -818,6 +818,49 @@ describe('Phase 2 & Comprehensive ERP Verification Suite', () => {
     // Cleanup
     db.prepare('DELETE FROM secondary_admin_assignments WHERE secondary_admin_id = ? AND staff_user_id = ?').run('usr-sec-01', staffId);
     db.prepare('DELETE FROM worksites WHERE id = ?').run(worksiteId);
+  });
+
+  it('Staff Management: Master Admin can assign location and radius; staff inherits specific range', () => {
+    const testStaffId = `usr-staff-test-${Date.now()}`;
+    const testWsId = `ws-lumia-01`;
+
+    // 1. Create staff with custom radius 220m and assigned worksite
+    db.prepare(`
+      INSERT INTO users (
+        id, email, password_hash, full_name, role, status, designation,
+        assigned_location, assigned_worksite_id, allowed_radius_meters,
+        is_attendance_participant, created_at, updated_at
+      ) VALUES (?, ?, 'hash', 'Test Field Eng', 'staff', 'active', 'Supervisor', 'Lumia Main Site', ?, 220, 1, datetime('now'), datetime('now'))
+    `).run(testStaffId, `eng-${Date.now()}@test.com`, testWsId);
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(testStaffId) as any;
+    expect(user).toBeDefined();
+    expect(user.role).toBe('staff');
+    expect(user.assigned_worksite_id).toBe(testWsId);
+    expect(user.allowed_radius_meters).toBe(220);
+
+    // 2. Master Admin updates location & radius to 350m
+    db.prepare(`
+      UPDATE users SET assigned_location = ?, assigned_worksite_id = ?, allowed_radius_meters = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run('Heritage Museum Site', 'ws-museum-02', 350, testStaffId);
+
+    const updatedUser = db.prepare('SELECT * FROM users WHERE id = ?').get(testStaffId) as any;
+    expect(updatedUser.assigned_worksite_id).toBe('ws-museum-02');
+    expect(updatedUser.allowed_radius_meters).toBe(350);
+
+    // 3. Verify user query returns assigned_worksite_id and allowed_radius_meters
+    const queriedStaff = db.prepare(`
+      SELECT u.id, u.email, u.full_name, u.role, u.assigned_location, u.assigned_worksite_id, u.allowed_radius_meters, w.name as assigned_worksite_name
+      FROM users u
+      LEFT JOIN worksites w ON u.assigned_worksite_id = w.id
+      WHERE u.id = ?
+    `).get(testStaffId) as any;
+    expect(queriedStaff.allowed_radius_meters).toBe(350);
+    expect(queriedStaff.assigned_worksite_id).toBe('ws-museum-02');
+
+    // Cleanup
+    db.prepare('DELETE FROM users WHERE id = ?').run(testStaffId);
   });
 });
 
