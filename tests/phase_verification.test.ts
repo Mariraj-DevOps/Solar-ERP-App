@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { db, initDatabase, logAudit, calculateHaversineDistanceMeters, maskAadhaar } from '../src/server/db';
+import { requireAuth } from '../src/server/routes';
 import bcrypt from 'bcryptjs';
 
 describe('Phase 2 & Comprehensive ERP Verification Suite', () => {
@@ -1023,6 +1024,29 @@ describe('Phase 2 & Comprehensive ERP Verification Suite', () => {
     db.prepare('DELETE FROM worksites WHERE name = ?').run(wsName);
     db.prepare('DELETE FROM teams WHERE id IN (?, ?, ?)').run(teamA, teamB, teamSec);
     db.prepare('DELETE FROM users WHERE id IN (?, ?, ?)').run(secAdminId, staffA, staffB);
+  });
+
+  it('verifies authentication middleware allows token in query params for mobile downloads', () => {
+    const jwt = require('jsonwebtoken');
+    const JWT_SECRET = process.env.JWT_SECRET || 'erp-super-secure-internal-secret-2026';
+    const testToken = jwt.sign({ id: 'usr-admin-01', email: 'admin@lumia.com', role: 'admin' }, JWT_SECRET);
+
+    let nextCalled = false;
+    const reqWithQueryToken: any = {
+      headers: {},
+      query: { token: testToken },
+    };
+    const res: any = {
+      status: (code: number) => ({
+        json: (data: any) => ({ code, data }),
+      }),
+    };
+    const next = () => { nextCalled = true; };
+
+    requireAuth(reqWithQueryToken, res, next);
+    expect(nextCalled).toBe(true);
+    expect(reqWithQueryToken.user).toBeDefined();
+    expect(reqWithQueryToken.user.id).toBe('usr-admin-01');
   });
 });
 

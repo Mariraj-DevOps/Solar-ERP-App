@@ -18,6 +18,7 @@ import * as XLSX from 'xlsx';
 import { api } from '../lib/api';
 import { formatINR } from '../lib/calculations';
 import { formatDateDisplay } from '../lib/dateUtils';
+import { downloadFile } from '../lib/downloadHelper';
 import { useAuth } from '../context/AuthContext';
 import { CustomSelect } from '../components/CustomSelect';
 
@@ -175,7 +176,13 @@ export function MonthlyReportsPage() {
     const wsCats = XLSX.utils.aoa_to_sheet(catRows);
     XLSX.utils.book_append_sheet(wb, wsCats, 'Category Breakdown');
 
-    XLSX.writeFile(wb, `Monthly_Report_${MONTH_NAMES[selectedMonth - 1]}_${selectedYear}.xlsx`);
+    const filename = `Monthly_Report_${MONTH_NAMES[selectedMonth - 1]}_${selectedYear}.xlsx`;
+    const excelB64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+    downloadFile({
+      filename,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      base64: excelB64,
+    });
   };
 
   return (

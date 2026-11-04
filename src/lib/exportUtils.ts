@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { formatINR } from './calculations';
 import { formatDateDisplay } from './dateUtils';
+import { downloadFile } from './downloadHelper';
 
 export interface WeeklyReportExportData {
   companyName: string;
@@ -233,7 +234,13 @@ export function exportWeeklyReportPDF(data: WeeklyReportExportData) {
     doc.text(`Page ${i} of ${totalPages} — Company Labour Attendance & Payment ERP`, pageWidth - 80, 202);
   }
 
-  doc.save(`Weekly_Report_${data.startDate}_to_${data.endDate}.pdf`);
+  const filename = `Weekly_Report_${data.startDate}_to_${data.endDate}.pdf`;
+  const pdfBlob = doc.output('blob');
+  downloadFile({
+    filename,
+    mimeType: 'application/pdf',
+    blob: pdfBlob,
+  });
 }
 
 /**
@@ -358,5 +365,11 @@ export function exportWeeklyReportExcel(data: WeeklyReportExportData) {
   const wsCharges = XLSX.utils.aoa_to_sheet(chargesData);
   XLSX.utils.book_append_sheet(wb, wsCharges, 'Additional Charges');
 
-  XLSX.writeFile(wb, `Weekly_Report_${data.startDate}_to_${data.endDate}.xlsx`);
+  const excelFilename = `Weekly_Report_${data.startDate}_to_${data.endDate}.xlsx`;
+  const excelB64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+  downloadFile({
+    filename: excelFilename,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    base64: excelB64,
+  });
 }

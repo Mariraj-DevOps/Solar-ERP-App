@@ -17,10 +17,13 @@ import {
 import { api } from '../lib/api';
 import { formatDateDisplay, getTodayKolkataISO } from '../lib/dateUtils';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { downloadFile } from '../lib/downloadHelper';
 import { CustomSelect } from '../components/CustomSelect';
 
 export function AttachmentsPage() {
   const { user, isMasterAdmin, isSecondaryAdmin } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [attachments, setAttachments] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,7 +66,7 @@ export function AttachmentsPage() {
 
   const handleUploadSubmit = async () => {
     if (!selectedFile) {
-      alert('Please choose a file to upload.');
+      showError('Please choose a file to upload.');
       return;
     }
 
@@ -83,6 +86,7 @@ export function AttachmentsPage() {
           date: docDate || undefined,
         });
 
+        showSuccess('Document uploaded successfully.', 'Document Uploaded');
         setUploadModalOpen(false);
         setSelectedFile(null);
         setDescription('');
@@ -90,7 +94,7 @@ export function AttachmentsPage() {
       };
       reader.readAsDataURL(selectedFile);
     } catch (err: any) {
-      alert(err.message || 'Failed to upload document.');
+      showError(err.message || 'Failed to upload document.');
     } finally {
       setIsUploading(false);
     }
@@ -100,9 +104,10 @@ export function AttachmentsPage() {
     if (!window.confirm('Delete this attachment?')) return;
     try {
       await api.attachments.delete(id);
+      showSuccess('Attachment deleted successfully.', 'Document Deleted');
       await loadAttachments();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete attachment.');
+      showError(err.message || 'Failed to delete attachment.');
     }
   };
 
@@ -247,15 +252,20 @@ export function AttachmentsPage() {
                     </td>
                     <td className="py-2.5 px-3 text-right">
                       <div className="flex items-center justify-end space-x-1.5">
-                        <a
-                          href={api.attachments.downloadUrl(att.id)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-1.5 text-[#456B5A] hover:text-[#014025] hover:bg-[#456B5A]/10 rounded"
+                        <button
+                          type="button"
+                          onClick={() => {
+                            downloadFile({
+                              filename: att.file_name || 'document',
+                              mimeType: att.mime_type,
+                              url: api.attachments.downloadUrl(att.id),
+                            });
+                          }}
+                          className="p-1.5 text-[#456B5A] hover:text-[#014025] hover:bg-[#456B5A]/10 rounded cursor-pointer"
                           title="Download Document"
                         >
                           <Download className="w-4 h-4" />
-                        </a>
+                        </button>
                         {(isMasterAdmin || att.owner_user_id === user?.id) && (
                           <button
                             onClick={() => handleDelete(att.id)}

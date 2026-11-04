@@ -320,6 +320,64 @@ export default function App() {
         };
       }
 
+      function handleDownloadIntercept(href, download) {
+        if (!href) return;
+        var token = '';
+        try {
+          token = localStorage.getItem('erp_token') || localStorage.getItem('solar_erp_token') || sessionStorage.getItem('erp_token') || '';
+        } catch (e) {}
+
+        if (href.indexOf('blob:') === 0) {
+          fetch(href)
+            .then(function(res) { return res.blob(); })
+            .then(function(blob) {
+              var reader = new FileReader();
+              reader.onloadend = function() {
+                var base64data = String(reader.result).split(',')[1];
+                if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'DOWNLOAD_BASE64',
+                    base64: base64data,
+                    filename: download || 'document.pdf',
+                    mimeType: blob.type
+                  }));
+                }
+              };
+              reader.readAsDataURL(blob);
+            })
+            .catch(function(err) {
+              console.warn('Blob read failed', err);
+            });
+        } else if (href.indexOf('#') !== 0 && href.indexOf('javascript:') !== 0) {
+          var aElem = document.createElement('a');
+          aElem.href = href;
+          var absoluteUrl = aElem.href;
+
+          if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'DOWNLOAD_URL',
+              url: absoluteUrl,
+              filename: download || absoluteUrl.split('/').pop() || 'download',
+              token: token
+            }));
+          }
+        }
+      }
+
+      // Monkey-patch HTMLAnchorElement.prototype.click to catch in-memory download clicks (jsPDF, SheetJS, etc.)
+      var origClick = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function() {
+        var a = this;
+        var href = a.getAttribute('href') || a.href;
+        var download = a.getAttribute('download') || a.download;
+
+        if (download !== null || (href && (href.indexOf('blob:') === 0 || href.indexOf('/download') !== -1 || href.indexOf('.pdf') !== -1 || href.indexOf('.xlsx') !== -1))) {
+          handleDownloadIntercept(href, download);
+          return;
+        }
+        return origClick.apply(this, arguments);
+      };
+
       // Intercept file download links (Blob / PDF / Excel / Attachments)
       document.addEventListener('click', function(e) {
         var target = e.target;
@@ -327,51 +385,13 @@ export default function App() {
           target = target.parentElement;
         }
         if (!target) return;
-        var href = target.getAttribute('href');
+        var href = target.getAttribute('href') || target.href;
         var download = target.getAttribute('download');
 
-        if (download !== null || (href && (href.indexOf('/download') !== -1 || href.endsWith('.pdf') || href.endsWith('.xlsx')))) {
-          if (href && href.indexOf('blob:') === 0) {
-            e.preventDefault();
-            e.stopPropagation();
-            fetch(href)
-              .then(function(res) { return res.blob(); })
-              .then(function(blob) {
-                var reader = new FileReader();
-                reader.onloadend = function() {
-                  var base64data = String(reader.result).split(',')[1];
-                  if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({
-                      type: 'DOWNLOAD_BASE64',
-                      base64: base64data,
-                      filename: download || 'download.pdf',
-                      mimeType: blob.type
-                    }));
-                  }
-                };
-                reader.readAsDataURL(blob);
-              })
-              .catch(function(err) {
-                console.warn('Blob read failed', err);
-              });
-          } else if (href && href.indexOf('#') !== 0 && href.indexOf('javascript:') !== 0) {
-            var absoluteUrl = target.href;
-            var token = '';
-            try {
-              token = localStorage.getItem('solar_erp_token') || sessionStorage.getItem('solar_erp_token') || '';
-            } catch (e) {}
-
-            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-              e.preventDefault();
-              e.stopPropagation();
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'DOWNLOAD_URL',
-                url: absoluteUrl,
-                filename: download || absoluteUrl.split('/').pop() || 'download',
-                token: token
-              }));
-            }
-          }
+        if (download !== null || (href && (href.indexOf('blob:') === 0 || href.indexOf('/download') !== -1 || href.indexOf('.pdf') !== -1 || href.indexOf('.xlsx') !== -1))) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleDownloadIntercept(href, download);
         }
       }, true);
     })();
@@ -415,31 +435,45 @@ export default function App() {
               if (data.type === 'REQUEST_LOCATION') {
                 await syncNativeLocation();
               } else if (data.type === 'DOWNLOAD_BASE64') {
-                const filename = data.filename || `report_${Date.now()}.xlsx`;
-                const fileUri = `${FileSystem.documentDirectory}${filename}`;
-                await FileSystem.writeAsStringAsync(fileUri, data.base64, {
-                  encoding: FileSystem.EncodingType.Base64,
-                });
-                if (await Sharing.isAvailableAsync()) {
-                  await Sharing.shareAsync(fileUri, {
-                    dialogTitle: `Download ${filename}`,
-                    mimeType: data.mimeType || 'application/octet-stream',
+                try {
+                  const filename = data.filename || `report_${Date.now()}.xlsx`;
+                  const fileUri = `${FileSystem.documentDirectory}${filename}`;
+                  await FileSystem.writeAsStringAsync(fileUri, data.base64, {
+                    encoding: FileSystem.EncodingType.Base64,
                   });
-                } else {
-                  Alert.alert('Download Complete', `File saved: ${filename}`);
+                  if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(fileUri, {
+                      dialogTitle: `Save or Open ${filename}`,
+                      mimeType: data.mimeType || 'application/octet-stream',
+                    });
+                  } else {
+                    Alert.alert('Download Complete', `File saved: ${filename}`);
+                  }
+                } catch (err) {
+                  console.warn('DOWNLOAD_BASE64 error:', err);
+                  Alert.alert('Download Error', err.message || 'Could not save file.');
                 }
               } else if (data.type === 'DOWNLOAD_URL') {
-                const filename = data.filename || `download_${Date.now()}`;
-                const fileUri = `${FileSystem.documentDirectory}${filename}`;
-                const downloadResult = await FileSystem.downloadAsync(data.url, fileUri, {
-                  headers: data.token ? { Authorization: `Bearer ${data.token}` } : {},
-                });
-                if (await Sharing.isAvailableAsync()) {
-                  await Sharing.shareAsync(downloadResult.uri, {
-                    dialogTitle: `Download ${filename}`,
+                try {
+                  const filename = data.filename || `download_${Date.now()}`;
+                  const fileUri = `${FileSystem.documentDirectory}${filename}`;
+                  let targetUrl = data.url;
+                  if (data.token && targetUrl.indexOf('token=') === -1) {
+                    targetUrl += (targetUrl.indexOf('?') === -1 ? '?' : '&') + 'token=' + encodeURIComponent(data.token);
+                  }
+                  const downloadResult = await FileSystem.downloadAsync(targetUrl, fileUri, {
+                    headers: data.token ? { Authorization: `Bearer ${data.token}` } : {},
                   });
-                } else {
-                  Alert.alert('Download Complete', `File downloaded successfully.`);
+                  if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(downloadResult.uri, {
+                      dialogTitle: `Save or Open ${filename}`,
+                    });
+                  } else {
+                    Alert.alert('Download Complete', `File downloaded successfully.`);
+                  }
+                } catch (err) {
+                  console.warn('DOWNLOAD_URL error:', err);
+                  Alert.alert('Download Error', err.message || 'Could not download file.');
                 }
               } else if (data.type === 'GET_PUSH_TOKEN') {
                 if (expoPushToken) {

@@ -21,6 +21,7 @@ import autoTable from 'jspdf-autotable';
 import { api } from '../lib/api';
 import { formatINR, round2 } from '../lib/calculations';
 import { formatDateDisplay, getTodayKolkataISO } from '../lib/dateUtils';
+import { downloadFile } from '../lib/downloadHelper';
 import { useAuth } from '../context/AuthContext';
 import { CustomSelect } from '../components/CustomSelect';
 
@@ -159,7 +160,13 @@ export function PettyCashPage() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `Petty Cash - ${selectedMonth}-${selectedYear}`);
-    XLSX.writeFile(wb, `Petty_Cash_${selectedMonth}_${selectedYear}.xlsx`);
+    const excelFilename = `Petty_Cash_${selectedMonth}_${selectedYear}.xlsx`;
+    const excelB64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+    downloadFile({
+      filename: excelFilename,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      base64: excelB64,
+    });
   };
 
   // Export to PDF
@@ -191,7 +198,13 @@ export function PettyCashPage() {
       headStyles: { fillColor: [1, 64, 37] },
     });
 
-    doc.save(`Petty_Cash_${selectedMonth}_${selectedYear}.pdf`);
+    const pdfFilename = `Petty_Cash_${selectedMonth}_${selectedYear}.pdf`;
+    const pdfBlob = doc.output('blob');
+    downloadFile({
+      filename: pdfFilename,
+      mimeType: 'application/pdf',
+      blob: pdfBlob,
+    });
   };
 
   const filteredEntries = data.entries.filter((e) => {
