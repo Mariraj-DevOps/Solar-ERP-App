@@ -862,5 +862,65 @@ describe('Phase 2 & Comprehensive ERP Verification Suite', () => {
     // Cleanup
     db.prepare('DELETE FROM users WHERE id = ?').run(testStaffId);
   });
+
+  it('Manager Scope: Assign multiple staff members to a manager simultaneously', () => {
+    const secAdminId = 'usr-sec-multi-test';
+    const staff1 = `usr-staff-m1-${Date.now()}`;
+    const staff2 = `usr-staff-m2-${Date.now()}`;
+    const staff3 = `usr-staff-m3-${Date.now()}`;
+
+    // Insert test manager and staff
+    db.prepare(`
+      INSERT OR REPLACE INTO users (id, email, password_hash, full_name, role, status, created_at, updated_at)
+      VALUES (?, 'manager-multi@test.com', 'hash', 'Branch Manager Multi', 'secondary_admin', 'active', datetime('now'), datetime('now'))
+    `).run(secAdminId);
+
+    for (const sId of [staff1, staff2, staff3]) {
+      db.prepare(`
+        INSERT OR REPLACE INTO users (id, email, password_hash, full_name, role, status, created_at, updated_at)
+        VALUES (?, ?, 'hash', ?, 'staff', 'active', datetime('now'), datetime('now'))
+      `).run(sId, `${sId}@test.com`, `Staff ${sId}`);
+    }
+
+    // Simulate multi-staff assignment transaction
+    const targetStaffIds = [staff1, staff2, staff3];
+    const insertStmt = db.prepare(`
+      INSERT INTO secondary_admin_assignments (
+        id, secondary_admin_id, staff_user_id, can_view_reports, can_approve_attendance, can_edit_attendance,
+        allowed_financial_modules_json, can_edit_finance, can_view_details, created_at, updated_at
+      ) VALUES (?, ?, ?, 1, 1, 1, '["weekly_payments","petty_cash"]', 0, 1, datetime('now'), datetime('now'))
+      ON CONFLICT(secondary_admin_id, staff_user_id) DO UPDATE SET updated_at = datetime('now')
+    `);
+
+    const updateStaffStmt = db.prepare("UPDATE users SET assigned_admin_id = ?, updated_at = datetime('now') WHERE id = ?");
+
+    db.transaction((ids: string[]) => {
+      for (const sId of ids) {
+        insertStmt.run(`assign-${secAdminId}-${sId}`, secAdminId, sId);
+        updateStaffStmt.run(secAdminId, sId);
+      }
+    })(targetStaffIds);
+
+    // Verify all 3 staff are assigned to the secondary admin
+    const assignments = db.prepare(`
+      SELECT staff_user_id FROM secondary_admin_assignments WHERE secondary_admin_id = ?
+    `).all(secAdminId) as Array<{ staff_user_id: string }>;
+
+    expect(assignments.length).toBe(3);
+    const assignedIds = assignments.map(a => a.staff_user_id);
+    expect(assignedIds).toContain(staff1);
+    expect(assignedIds).toContain(staff2);
+    expect(assignedIds).toContain(staff3);
+
+    // Verify user records also reflect assigned_admin_id
+    for (const sId of targetStaffIds) {
+      const u = db.prepare('SELECT assigned_admin_id FROM users WHERE id = ?').get(sId) as any;
+      expect(u.assigned_admin_id).toBe(secAdminId);
+    }
+
+    // Cleanup
+    db.prepare('DELETE FROM secondary_admin_assignments WHERE secondary_admin_id = ?').run(secAdminId);
+    db.prepare('DELETE FROM users WHERE id IN (?, ?, ?, ?)').run(secAdminId, staff1, staff2, staff3);
+  });
 });
 

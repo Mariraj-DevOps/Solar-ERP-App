@@ -11,13 +11,17 @@ import {
   AlertCircle,
   Building,
   RefreshCw,
+  Search,
+  X,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { CustomSelect } from '../components/CustomSelect';
 
 export function SecondaryAdminPage() {
   const { user, isMasterAdmin } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [secAdmins, setSecAdmins] = useState<any[]>([]);
   const [allStaff, setAllStaff] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,7 +31,8 @@ export function SecondaryAdminPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<any | null>(null);
   const [selectedAdminId, setSelectedAdminId] = useState('');
-  const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+  const [staffSearchQuery, setStaffSearchQuery] = useState('');
   const [canViewReports, setCanViewReports] = useState(true);
   const [canApproveAttendance, setCanApproveAttendance] = useState(true);
   const [canEditAttendance, setCanEditAttendance] = useState(true);
@@ -60,7 +65,8 @@ export function SecondaryAdminPage() {
     setEditingAssignment(null);
     if (adminId) setSelectedAdminId(adminId);
     else if (secAdmins.length > 0) setSelectedAdminId(secAdmins[0].id);
-    if (allStaff.length > 0) setSelectedStaffId(allStaff[0].id);
+    setSelectedStaffIds([]);
+    setStaffSearchQuery('');
     setCanViewReports(true);
     setCanApproveAttendance(true);
     setCanEditAttendance(true);
@@ -71,7 +77,7 @@ export function SecondaryAdminPage() {
 
   const openEditAssignModal = (adminId: string, assign: any) => {
     setSelectedAdminId(adminId);
-    setSelectedStaffId(assign.staff_user_id);
+    setSelectedStaffIds([assign.staff_user_id]);
     setCanViewReports(Boolean(assign.can_view_reports));
     setCanApproveAttendance(Boolean(assign.can_approve_attendance));
     setCanEditAttendance(Boolean(assign.can_edit_attendance));
@@ -82,8 +88,12 @@ export function SecondaryAdminPage() {
   };
 
   const handleSaveAssignment = async () => {
-    if (!selectedAdminId || !selectedStaffId) {
-      alert('Please select both a secondary admin and staff member.');
+    if (!selectedAdminId) {
+      showError('Please select a manager / secondary administrator.');
+      return;
+    }
+    if (selectedStaffIds.length === 0) {
+      showError('Please select at least one staff member to assign.');
       return;
     }
 
@@ -91,7 +101,7 @@ export function SecondaryAdminPage() {
     try {
       await api.secondaryAdmins.assign({
         secondaryAdminId: selectedAdminId,
-        staffUserId: selectedStaffId,
+        staffUserIds: selectedStaffIds,
         canViewReports: canViewReports ? 1 : 0,
         canApproveAttendance: canApproveAttendance ? 1 : 0,
         canEditAttendance: canEditAttendance ? 1 : 0,
@@ -101,9 +111,15 @@ export function SecondaryAdminPage() {
       });
 
       setModalOpen(false);
+      showSuccess(
+        editingAssignment
+          ? 'Scope permissions updated successfully.'
+          : `Successfully assigned ${selectedStaffIds.length} staff member(s) to manager scope.`,
+        'Manager Scope Saved'
+      );
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to update assignment.');
+      showError(err.message || 'Failed to update assignment.');
     } finally {
       setIsSubmitting(false);
     }
@@ -113,9 +129,10 @@ export function SecondaryAdminPage() {
     if (!window.confirm('Remove this staff assignment from the secondary admin?')) return;
     try {
       await api.secondaryAdmins.remove(adminId, staffId);
+      showSuccess('Staff assignment removed successfully.');
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to remove assignment.');
+      showError(err.message || 'Failed to remove assignment.');
     }
   };
 
@@ -124,6 +141,20 @@ export function SecondaryAdminPage() {
       prev.includes(mod) ? prev.filter((m) => m !== mod) : [...prev, mod]
     );
   };
+
+  const filteredStaff = allStaff.filter((s) => {
+    if (!staffSearchQuery.trim()) return true;
+    const q = staffSearchQuery.toLowerCase();
+    return (
+      s.full_name?.toLowerCase().includes(q) ||
+      s.email?.toLowerCase().includes(q) ||
+      s.designation?.toLowerCase().includes(q) ||
+      s.assigned_location?.toLowerCase().includes(q) ||
+      s.assigned_worksite_name?.toLowerCase().includes(q)
+    );
+  });
+
+  const selectedAdmin = secAdmins.find((a) => a.id === selectedAdminId);
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
@@ -313,35 +344,185 @@ export function SecondaryAdminPage() {
               </button>
             </div>
             <div className="p-5 space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <CustomSelect
-                    label="Secondary Admin"
-                    value={selectedAdminId}
-                    onChange={(val) => setSelectedAdminId(String(val))}
-                    options={secAdmins.map((a) => ({
-                      value: a.id,
-                      label: a.full_name,
-                      sublabel: a.email,
-                    }))}
-                    placeholder="Choose Admin..."
-                  />
-                </div>
+              {editingAssignment ? (
+                /* Single edit mode for an already assigned staff */
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#014025] mb-1">Assigned Manager</label>
+                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-800">
+                      {selectedAdmin?.full_name || 'Selected Manager'}
+                    </div>
+                  </div>
 
-                <div>
-                  <CustomSelect
-                    label="Staff Member to Manage"
-                    value={selectedStaffId}
-                    onChange={(val) => setSelectedStaffId(String(val))}
-                    options={allStaff.map((s) => ({
-                      value: s.id,
-                      label: s.full_name,
-                      sublabel: s.email,
-                    }))}
-                    placeholder="Choose Staff..."
-                  />
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">Editing Scope Permissions For</span>
+                      <div className="font-bold text-sm text-[#014025]">{editingAssignment.staff_name}</div>
+                      <div className="text-[11px] text-[#696969]">{editingAssignment.staff_email}</div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[10px] font-bold">1 Staff</span>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Multi-select staff creation mode */
+                <div className="space-y-3">
+                  <div>
+                    <CustomSelect
+                      label="Assign to Secondary Admin (Manager)"
+                      value={selectedAdminId}
+                      onChange={(val) => setSelectedAdminId(String(val))}
+                      options={secAdmins.map((a) => ({
+                        value: a.id,
+                        label: a.full_name,
+                        sublabel: `${a.email} • ${a.assigned_location || 'General'}`,
+                      }))}
+                      placeholder="Choose Admin..."
+                    />
+                  </div>
+
+                  {/* Multi-staff selection list */}
+                  <div className="space-y-2 border-t border-[#696969]/15 pt-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <div className="flex items-center space-x-2">
+                        <label className="font-bold text-xs text-[#014025]">
+                          Select Staff Members to Assign
+                        </label>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                          {selectedStaffIds.length} of {allStaff.length} selected
+                        </span>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStaffIds(allStaff.map((s) => s.id))}
+                          className="text-[11px] text-[#0E6037] hover:underline font-semibold cursor-pointer"
+                        >
+                          Select All ({allStaff.length})
+                        </button>
+                        <span className="text-slate-300">•</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStaffIds([])}
+                          className="text-[11px] text-slate-500 hover:text-slate-700 cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Search input for filtering staff */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                      <input
+                        type="text"
+                        value={staffSearchQuery}
+                        onChange={(e) => setStaffSearchQuery(e.target.value)}
+                        placeholder="Search staff by name, email, or site..."
+                        className="w-full pl-8 pr-8 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-[#456B5A] focus:outline-none bg-slate-50/50"
+                      />
+                      {staffSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setStaffSearchQuery('')}
+                          className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Selected staff quick chips */}
+                    {selectedStaffIds.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 p-2 bg-emerald-50/60 border border-emerald-200/80 rounded-lg max-h-24 overflow-y-auto">
+                        {selectedStaffIds.map((id) => {
+                          const st = allStaff.find((s) => s.id === id);
+                          return (
+                            <span
+                              key={id}
+                              className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-white border border-emerald-300 text-emerald-950 text-[11px] font-medium shadow-2xs"
+                            >
+                              <span>{st?.full_name || id}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedStaffIds((prev) => prev.filter((item) => item !== id));
+                                }}
+                                className="text-emerald-700 hover:text-red-600 ml-1 cursor-pointer font-bold"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Staff checklist */}
+                    <div className="max-h-48 overflow-y-auto space-y-1 p-1 border border-slate-200 rounded-xl bg-slate-50/40">
+                      {filteredStaff.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-slate-400">
+                          No staff members match &quot;{staffSearchQuery}&quot;
+                        </div>
+                      ) : (
+                        filteredStaff.map((staff) => {
+                          const isSelected = selectedStaffIds.includes(staff.id);
+                          const isAlreadyAssigned = Boolean(
+                            selectedAdmin?.assignedStaff?.some((a: any) => a.staff_user_id === staff.id)
+                          );
+
+                          return (
+                            <div
+                              key={staff.id}
+                              onClick={() => {
+                                setSelectedStaffIds((prev) =>
+                                  prev.includes(staff.id)
+                                    ? prev.filter((id) => id !== staff.id)
+                                    : [...prev, staff.id]
+                                );
+                              }}
+                              className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs border ${
+                                isSelected
+                                  ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
+                                  : 'bg-white border-slate-200/80 hover:bg-slate-50 text-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2.5">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {}} // handled by parent div onClick
+                                  className="rounded text-[#0E6037] focus:ring-[#0E6037] cursor-pointer"
+                                />
+                                <div>
+                                  <div className="font-semibold flex items-center space-x-1.5">
+                                    <span>{staff.full_name}</span>
+                                    {isAlreadyAssigned && (
+                                      <span className="text-[9px] bg-slate-100 text-slate-600 px-1 py-0.2 rounded font-normal">
+                                        Currently in Scope
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500">
+                                    {staff.email} • {staff.designation || 'Staff'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="text-right">
+                                <span className="text-[10px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+                                  {staff.assigned_worksite_name || staff.assigned_location || 'General Site'}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Permission Switches */}
               <div className="space-y-2 border-t border-[#696969]/15 pt-3">
@@ -450,7 +631,7 @@ export function SecondaryAdminPage() {
                 disabled={isSubmitting}
                 className="px-4 py-1.5 bg-[#0E6037] hover:bg-[#0B4D2C] text-white rounded-lg text-xs font-semibold shadow-xs disabled:opacity-50 cursor-pointer"
               >
-                {isSubmitting ? 'Saving...' : editingAssignment ? 'Update Scope Permissions' : 'Save Permissions'}
+                {isSubmitting ? 'Saving...' : editingAssignment ? 'Update Scope Permissions' : `Assign ${selectedStaffIds.length > 0 ? `${selectedStaffIds.length} Staff` : 'Staff'} to Manager`}
               </button>
             </div>
           </div>

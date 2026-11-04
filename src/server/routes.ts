@@ -938,6 +938,7 @@ apiRouter.post('/secondary-admins/assign', requireAuth, requireMasterAdmin, (req
   const {
     secondaryAdminId,
     staffUserId,
+    staffUserIds,
     canViewReports = 1,
     canApproveAttendance = 1,
     canEditAttendance = 1,
@@ -946,14 +947,21 @@ apiRouter.post('/secondary-admins/assign', requireAuth, requireMasterAdmin, (req
     canViewDetails = 1,
   } = req.body;
 
-  if (!secondaryAdminId || !staffUserId) {
-    return res.status(400).json({ error: 'Secondary admin and staff user are required.' });
+  let targetStaffIds: string[] = [];
+  if (Array.isArray(staffUserIds) && staffUserIds.length > 0) {
+    targetStaffIds = staffUserIds;
+  } else if (Array.isArray(staffUserId) && staffUserId.length > 0) {
+    targetStaffIds = staffUserId;
+  } else if (staffUserId) {
+    targetStaffIds = [staffUserId];
   }
 
-  const id = `assign-${secondaryAdminId}-${staffUserId}`;
-  const now = new Date().toISOString();
+  if (!secondaryAdminId || targetStaffIds.length === 0) {
+    return res.status(400).json({ error: 'Secondary admin and at least one staff user are required.' });
+  }
 
-  db.prepare(`
+  const now = new Date().toISOString();
+  const insertStmt = db.prepare(`
     INSERT INTO secondary_admin_assignments (
       id, secondary_admin_id, staff_user_id, can_view_reports, can_approve_attendance, can_edit_attendance,
       allowed_financial_modules_json, can_edit_finance, can_view_details, created_at, updated_at
@@ -966,22 +974,31 @@ apiRouter.post('/secondary-admins/assign', requireAuth, requireMasterAdmin, (req
       can_edit_finance = excluded.can_edit_finance,
       can_view_details = excluded.can_view_details,
       updated_at = excluded.updated_at
-  `).run(
-    id,
-    secondaryAdminId,
-    staffUserId,
-    canViewReports ? 1 : 0,
-    canApproveAttendance ? 1 : 0,
-    canEditAttendance ? 1 : 0,
-    JSON.stringify(allowedFinancialModules),
-    canEditFinance ? 1 : 0,
-    canViewDetails ? 1 : 0,
-    now,
-    now
-  );
+  `);
 
-  // Update staff user's assigned_admin_id
-  db.prepare('UPDATE users SET assigned_admin_id = ?, updated_at = ? WHERE id = ?').run(secondaryAdminId, now, staffUserId);
+  const updateStaffAdminStmt = db.prepare('UPDATE users SET assigned_admin_id = ?, updated_at = ? WHERE id = ?');
+
+  const assignTx = db.transaction((ids: string[]) => {
+    for (const sId of ids) {
+      const id = `assign-${secondaryAdminId}-${sId}`;
+      insertStmt.run(
+        id,
+        secondaryAdminId,
+        sId,
+        canViewReports ? 1 : 0,
+        canApproveAttendance ? 1 : 0,
+        canEditAttendance ? 1 : 0,
+        JSON.stringify(allowedFinancialModules),
+        canEditFinance ? 1 : 0,
+        canViewDetails ? 1 : 0,
+        now,
+        now
+      );
+      updateStaffAdminStmt.run(secondaryAdminId, now, sId);
+    }
+  });
+
+  assignTx(targetStaffIds);
 
   logAudit({
     actorId: req.user!.id,
@@ -989,11 +1006,18 @@ apiRouter.post('/secondary-admins/assign', requireAuth, requireMasterAdmin, (req
     actorRole: req.user!.role,
     action: 'ASSIGN_SECONDARY_ADMIN',
     entityType: 'secondary_admin_assignments',
-    entityId: id,
-    newValues: { secondaryAdminId, staffUserId, allowedFinancialModules },
+    entityId: `multi-${Date.now()}`,
+    newValues: { secondaryAdminId, targetStaffIds, allowedFinancialModules },
   });
 
-  res.json({ success: true, message: 'Secondary admin permissions and scope updated.' });
+  triggerPgSync(500);
+
+  res.json({
+    success: true,
+    message: `Assigned ${targetStaffIds.length} staff member(s) to secondary admin scope.`,
+    assignedCount: targetStaffIds.length,
+    staffIds: targetStaffIds,
+  });
 });
 
 apiRouter.delete('/secondary-admins/assign/:adminId/:staffId', requireAuth, requireMasterAdmin, (req: Request, res: Response) => {
