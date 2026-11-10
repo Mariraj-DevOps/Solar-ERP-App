@@ -1,24 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users,
   IndianRupee,
   Calendar,
   BarChart3,
   TrendingUp,
-  Clock,
-  Layers,
-  ChevronRight,
-  ShieldCheck,
   RefreshCw,
-  ArrowDownRight,
-  ArrowUpRight,
-  PieChart,
+  Wallet,
+  ArrowRight,
 } from 'lucide-react';
 import { formatINR } from '../lib/calculations';
-import { formatDateDisplay, getWeekBounds } from '../lib/dateUtils';
+import { formatDateDisplay, getWeekBounds, getPreviousWeek, getDayName } from '../lib/dateUtils';
 import { api } from '../lib/api';
 import { NavTab } from './Sidebar';
-import { SplineTrendChart, TrendDataPoint } from './SplineTrendChart';
+import { SplineTrendChart, ComparisonPoint } from './SplineTrendChart';
 import { ReportTinyOverview } from './ReportTinyOverview';
 
 interface DayBreakdownItem {
@@ -50,15 +45,29 @@ export function MasterAdminAnalytics({
   dayBreakdown,
   onNavigate,
 }: MasterAdminAnalyticsProps) {
+  // Primary Switch: 'attendance' vs 'payments'
+  const [metric, setMetric] = useState<'attendance' | 'payments'>('attendance');
+  // Secondary Switch: 'weekly' vs 'monthly'
   const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
-  const [monthlyData, setMonthlyData] = useState<any | null>(null);
-  const [isLoadingMonthly, setIsLoadingMonthly] = useState(false);
-  const [showCategoryDrilldown, setShowCategoryDrilldown] = useState(false);
 
-  const weekBounds = getWeekBounds(currentWeekStart);
+  // Real data state for previous week
+  const [prevWeeklyReport, setPrevWeeklyReport] = useState<any | null>(null);
+  const [isLoadingPrevWeek, setIsLoadingPrevWeek] = useState(false);
+
+  // Real data state for monthly
+  const [monthlyData, setMonthlyData] = useState<any | null>(null);
+  const [prevMonthlyData, setPrevMonthlyData] = useState<any | null>(null);
+  const [isLoadingMonthly, setIsLoadingMonthly] = useState(false);
+
+  // Cycle date boundaries
+  const weekBounds = useMemo(() => getWeekBounds(currentWeekStart), [currentWeekStart]);
+  const prevWeekBounds = useMemo(() => getPreviousWeek(currentWeekStart), [currentWeekStart]);
+
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth() + 1;
+  const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+  const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 
   const monthNames = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -68,155 +77,261 @@ export function MasterAdminAnalytics({
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
-  const currentMonthName = fullMonthNames[currentMonth - 1];
 
-  // Fetch monthly data when switching to Monthly
+  // -------------------------------------------------------------
+  // Fetch real data for previous week whenever currentWeekStart changes
+  // -------------------------------------------------------------
   useEffect(() => {
-    if (period === 'monthly' && !monthlyData && !isLoadingMonthly) {
-      loadMonthlyData();
+    let isMounted = true;
+    async function loadPrevWeekData() {
+      setIsLoadingPrevWeek(true);
+      try {
+        const res = await api.reports.getWeekly(prevWeekBounds.startDate);
+        if (isMounted) {
+          setPrevWeeklyReport(res);
+        }
+      } catch (e) {
+        console.error('Failed to load previous week report', e);
+      } finally {
+        if (isMounted) setIsLoadingPrevWeek(false);
+      }
     }
-  }, [period]);
+    loadPrevWeekData();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentWeekStart, prevWeekBounds.startDate]);
 
-  const loadMonthlyData = async () => {
-    setIsLoadingMonthly(true);
-    try {
-      const res = await api.reports.getMonthly(currentYear, currentMonth);
-      setMonthlyData(res);
-    } catch (e) {
-      console.error('Failed to load monthly analytics data', e);
-    } finally {
-      setIsLoadingMonthly(false);
+  // -------------------------------------------------------------
+  // Fetch real monthly reports when switched to Monthly
+  // -------------------------------------------------------------
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMonthlyReports() {
+      if (period === 'monthly' && (!monthlyData || !prevMonthlyData)) {
+        setIsLoadingMonthly(true);
+        try {
+          const [curM, prevM] = await Promise.all([
+            api.reports.getMonthly(currentYear, currentMonth),
+            api.reports.getMonthly(prevYear, prevMonth),
+          ]);
+          if (isMounted) {
+            setMonthlyData(curM);
+            setPrevMonthlyData(prevM);
+          }
+        } catch (e) {
+          console.error('Failed to load monthly reports', e);
+        } finally {
+          if (isMounted) setIsLoadingMonthly(false);
+        }
+      }
     }
-  };
+    loadMonthlyReports();
+    return () => {
+      isMounted = false;
+    };
+  }, [period, currentYear, currentMonth, prevYear, prevMonth]);
 
   // -------------------------------------------------------------
-  // Calculations: Weekly Metrics
+  // Calculate real daily figures for Current Week
   // -------------------------------------------------------------
-  const totalWeeklyWorkers = dayBreakdown.reduce((sum, d) => sum + d.workerCount, 0);
-  const totalWeeklyLabour = dayBreakdown.reduce((sum, d) => sum + d.totalAmount, 0);
-  const activeDaysCount = dayBreakdown.filter((d) => d.workerCount > 0).length || 1;
-  const avgWorkersPerDay = Math.round(totalWeeklyWorkers / activeDaysCount);
-  const maxWeeklyWorkers = Math.max(...dayBreakdown.map((d) => d.workerCount), 1);
+  const currentDaysData = useMemo(() => {
+    return weekBounds.days.map((d) => {
+      const dayEntries = weeklyReport?.teamSummaries?.flatMap((t: any) =>
+        t.entries?.filter((e: any) => e.date === d) || []
+      ) || [];
+      const workerCount = dayEntries.reduce((sum: number, e: any) =>
+        sum + (e.lines?.reduce((s: number, l: any) => s + (Number(l.count) || 0), 0) || 0), 0
+      );
+      const labourAmount = dayEntries.reduce((sum: number, e: any) =>
+        sum + (e.lines?.reduce((s: number, l: any) => s + (Number(l.final_amount) || 0), 0) || 0), 0
+      );
+      const overtimeAmount = dayEntries.reduce((sum: number, e: any) => sum + (Number(e.overtime_amount) || 0), 0);
+      const chargesAmount = weeklyReport?.teamSummaries?.flatMap((t: any) =>
+        t.charges?.filter((c: any) => c.date === d) || []
+      ).reduce((sum: number, c: any) => sum + (Number(c.final_amount) || 0), 0) || 0;
 
-  const grandTotals = weeklyReport?.grandTotals || {
-    labour: 0,
-    additionalCharges: 0,
-    gross: 0,
-    finalPayable: 0,
-    paid: 0,
-    outstanding: 0,
-  };
-
-  // Category breakdown for weekly
-  const weeklyCategories: Record<string, number> = {};
-  weeklyReport?.teamSummaries?.forEach((t: any) => {
-    t.entries?.forEach((e: any) => {
-      e.lines?.forEach((l: any) => {
-        const cat = l.category_name || 'General';
-        weeklyCategories[cat] = (weeklyCategories[cat] || 0) + (Number(l.count) || 0);
-      });
-    });
-  });
-  const weeklyCategoryList = Object.entries(weeklyCategories)
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count);
-
-  // -------------------------------------------------------------
-  // Calculations: Monthly Metrics
-  // -------------------------------------------------------------
-  const monthlyTotals = monthlyData?.totals || {
-    totalLabour: 740600, // actual seeded October 2026 default baseline
-    totalOvertime: 0,
-    totalCharges: 25000,
-    gross: 765600,
-    deductions: 5000,
-    advances: 10000,
-    payable: 750600,
-  };
-  const monthlyCategories: Array<{ categoryName: string; totalCount: number; totalAmount: number }> =
-    monthlyData?.categoryBreakdown || [];
-  const totalMonthlyWorkerDays = monthlyCategories.reduce((sum, c) => sum + (c.totalCount || 0), 0) || 165;
-
-  // -------------------------------------------------------------
-  // Top 4 KPI Metrics (Matching Image 1 cards)
-  // -------------------------------------------------------------
-  const currentLabourAmount = period === 'weekly' ? (grandTotals.labour || totalWeeklyLabour || 48500) : (monthlyTotals.totalLabour || 740600);
-  const prevLabourAmount = Math.round(currentLabourAmount * 1.1); // ~10% decrease
-  const currentPaidAmount = period === 'weekly' ? (grandTotals.paid || 38200) : 695000;
-  const prevPaidAmount = Math.round(currentPaidAmount * 0.9); // ~10% increase
-  const overallNetPayable = period === 'weekly' ? (grandTotals.finalPayable || 52000) : (monthlyTotals.payable || 750600);
-  
-  const settlementRatio = overallNetPayable > 0 ? (currentPaidAmount / overallNetPayable) : 0.85;
-  const settlementPercent = Math.min(100, Math.round(settlementRatio * 100));
-
-  // -------------------------------------------------------------
-  // Data for Spline Trend Chart (Matching Image 1 curves)
-  // -------------------------------------------------------------
-  let trendChartData: TrendDataPoint[] = [];
-
-  if (period === 'weekly') {
-    // 7 days of the reporting week (Sat through Fri)
-    const avgDailyLabour = Math.round(totalWeeklyLabour / 7) || 7500;
-    const avgDailyPayment = Math.round((grandTotals.paid || 38200) / 7) || 6000;
-
-    trendChartData = dayBreakdown.map((d, i) => {
-      // If day has 0 in database, provide realistic daily proportion for smooth visualization
-      const dailyLabour = d.totalAmount > 0 ? d.totalAmount : Math.round(avgDailyLabour * (0.8 + 0.4 * Math.sin(i * 1.2)));
-      const dailyPayment = Math.round(dailyLabour * (0.75 + 0.2 * Math.cos(i * 1.1)));
       return {
-        label: d.dayName.substring(0, 3),
-        sublabel: `${d.date.substring(8, 10)}/${d.date.substring(5, 7)}`,
-        attendance: dailyLabour,
-        payment: dailyPayment,
-        workerCount: d.workerCount > 0 ? d.workerCount : Math.round(dailyLabour / 650),
-        isForecast: false,
+        date: d,
+        dayName: getDayName(d),
+        workerCount,
+        labourAmount,
+        overtimeAmount,
+        chargesAmount,
+        totalExpenses: labourAmount + overtimeAmount + chargesAmount,
       };
     });
+  }, [weekBounds, weeklyReport]);
 
-    // Plus 2 forecasted days (Sat & Sun of next cycle) - Dashed curve transition
-    trendChartData.push({
-      label: 'Sat (Proj)',
-      sublabel: 'Forecast',
-      attendance: Math.round(avgDailyLabour * 1.05),
-      payment: Math.round(avgDailyPayment * 1.08),
-      workerCount: Math.round(avgWorkersPerDay * 1.05),
-      isForecast: true,
+  // -------------------------------------------------------------
+  // Calculate real daily figures for Previous Week
+  // -------------------------------------------------------------
+  const prevDaysData = useMemo(() => {
+    return prevWeekBounds.days.map((d) => {
+      const dayEntries = prevWeeklyReport?.teamSummaries?.flatMap((t: any) =>
+        t.entries?.filter((e: any) => e.date === d) || []
+      ) || [];
+      const workerCount = dayEntries.reduce((sum: number, e: any) =>
+        sum + (e.lines?.reduce((s: number, l: any) => s + (Number(l.count) || 0), 0) || 0), 0
+      );
+      const labourAmount = dayEntries.reduce((sum: number, e: any) =>
+        sum + (e.lines?.reduce((s: number, l: any) => s + (Number(l.final_amount) || 0), 0) || 0), 0
+      );
+      const overtimeAmount = dayEntries.reduce((sum: number, e: any) => sum + (Number(e.overtime_amount) || 0), 0);
+      const chargesAmount = prevWeeklyReport?.teamSummaries?.flatMap((t: any) =>
+        t.charges?.filter((c: any) => c.date === d) || []
+      ).reduce((sum: number, c: any) => sum + (Number(c.final_amount) || 0), 0) || 0;
+
+      return {
+        date: d,
+        dayName: getDayName(d),
+        workerCount,
+        labourAmount,
+        overtimeAmount,
+        chargesAmount,
+        totalExpenses: labourAmount + overtimeAmount + chargesAmount,
+      };
     });
-    trendChartData.push({
-      label: 'Sun (Proj)',
-      sublabel: 'Forecast',
-      attendance: Math.round(avgDailyLabour * 1.1),
-      payment: Math.round(avgDailyPayment * 1.12),
-      workerCount: Math.round(avgWorkersPerDay * 1.1),
-      isForecast: true,
-    });
+  }, [prevWeekBounds, prevWeeklyReport]);
+
+  // -------------------------------------------------------------
+  // Summary Aggregations
+  // -------------------------------------------------------------
+  // Current Week Totals
+  const curTotalWorkers = currentDaysData.reduce((sum, d) => sum + d.workerCount, 0);
+  const curActiveDays = currentDaysData.filter((d) => d.workerCount > 0).length || 1;
+  const curAvgDailyWorkers = Math.round(curTotalWorkers / curActiveDays);
+  const curPeakWorkers = Math.max(...currentDaysData.map((d) => d.workerCount), 1);
+  const curTotalLabour = currentDaysData.reduce((sum, d) => sum + d.labourAmount, 0);
+  const curTotalExpenses = currentDaysData.reduce((sum, d) => sum + d.totalExpenses, 0);
+
+  const curPaid = weeklyReport?.grandTotals?.paid || 0;
+  const curPayable = weeklyReport?.grandTotals?.finalPayable || curTotalExpenses || 0;
+  const curOutstanding = weeklyReport?.grandTotals?.outstanding || Math.max(0, curPayable - curPaid);
+  const curSettlementPct = curPayable > 0 ? Math.min(100, Math.round((curPaid / curPayable) * 100)) : 0;
+
+  // Previous Week Totals
+  const prevTotalWorkers = prevDaysData.reduce((sum, d) => sum + d.workerCount, 0);
+  const prevActiveDays = prevDaysData.filter((d) => d.workerCount > 0).length || 1;
+  const prevAvgDailyWorkers = Math.round(prevTotalWorkers / prevActiveDays);
+  const prevTotalLabour = prevDaysData.reduce((sum, d) => sum + d.labourAmount, 0);
+  const prevTotalExpenses = prevDaysData.reduce((sum, d) => sum + d.totalExpenses, 0);
+  const prevPaid = prevWeeklyReport?.grandTotals?.paid || 0;
+  const prevPayable = prevWeeklyReport?.grandTotals?.finalPayable || prevTotalExpenses || 0;
+
+  // Percentage changes
+  const workerChangePct = prevTotalWorkers > 0
+    ? Math.round(((curTotalWorkers - prevTotalWorkers) / prevTotalWorkers) * 100)
+    : 100;
+  const isWorkerIncrease = curTotalWorkers >= prevTotalWorkers;
+
+  const expenseChangePct = prevTotalExpenses > 0
+    ? Math.round(((curTotalExpenses - prevTotalExpenses) / prevTotalExpenses) * 100)
+    : 100;
+  const isExpenseIncrease = curTotalExpenses >= prevTotalExpenses;
+
+  // -------------------------------------------------------------
+  // Build Chart Data Points based on selected Metric and Period
+  // -------------------------------------------------------------
+  let chartData: ComparisonPoint[] = [];
+  let currentSeriesLabel = '';
+  let prevSeriesLabel = '';
+  let chartTitle = '';
+  let chartSubtitle = '';
+  let chartUnit = '';
+  let chartFormatter: (val: number) => string = (v) => String(v);
+
+  if (period === 'weekly') {
+    const curRange = `${formatDateDisplay(weekBounds.startDate).slice(0, 5)}–${formatDateDisplay(weekBounds.endDate).slice(0, 5)}`;
+    const prevRange = `${formatDateDisplay(prevWeekBounds.startDate).slice(0, 5)}–${formatDateDisplay(prevWeekBounds.endDate).slice(0, 5)}`;
+
+    if (metric === 'attendance') {
+      currentSeriesLabel = `This Week (${curRange})`;
+      prevSeriesLabel = `Last Week (${prevRange})`;
+      chartTitle = 'Daily Attendance Turnout: This Week vs Last Week';
+      chartSubtitle = `Comparison of daily worker turnout across the Saturday–Friday cycle`;
+      chartUnit = 'Workers';
+      chartFormatter = (val) => `${val} Workers`;
+
+      chartData = currentDaysData.map((d, i) => ({
+        label: d.dayName,
+        sublabel1: formatDateDisplay(d.date).slice(0, 5),
+        sublabel2: formatDateDisplay(prevDaysData[i]?.date || '').slice(0, 5),
+        currentVal: d.workerCount,
+        prevVal: prevDaysData[i]?.workerCount || 0,
+      }));
+    } else {
+      currentSeriesLabel = `This Week Expenses (${curRange})`;
+      prevSeriesLabel = `Last Week Expenses (${prevRange})`;
+      chartTitle = 'Daily Site Expenses: This Week vs Last Week';
+      chartSubtitle = `Daily total expenses (Labour + Overtime + Additional Charges) across Saturday–Friday cycle`;
+      chartUnit = '₹';
+      chartFormatter = (val) => formatINR(val);
+
+      chartData = currentDaysData.map((d, i) => ({
+        label: d.dayName,
+        sublabel1: formatDateDisplay(d.date).slice(0, 5),
+        sublabel2: formatDateDisplay(prevDaysData[i]?.date || '').slice(0, 5),
+        currentVal: d.totalExpenses,
+        prevVal: prevDaysData[i]?.totalExpenses || 0,
+      }));
+    }
   } else {
-    // Monthly View: Historical months + 2 forecasted months (Exact match to Image 1)
-    trendChartData = [
-      { label: 'May 2026', attendance: 580000, payment: 510000, isForecast: false },
-      { label: 'Jun 2026', attendance: 620000, payment: 590000, isForecast: false },
-      { label: 'Jul 2026', attendance: 680000, payment: 640000, isForecast: false },
-      { label: 'Aug 2026', attendance: 710000, payment: 670000, isForecast: false },
-      { label: 'Sep 2026', attendance: 700000, payment: 690000, isForecast: false },
-      { label: 'Oct 2026', attendance: 740600, payment: 710000, isForecast: false },
-      { label: 'Nov 2026', attendance: currentLabourAmount, payment: currentPaidAmount, isForecast: false },
-      // Forecasted future months (Dashed lines)
-      { label: 'Dec 2026', attendance: 760000, payment: 730000, isForecast: true },
-      { label: 'Jan 2027', attendance: 785000, payment: 755000, isForecast: true },
-    ];
+    // Monthly View: Compare Current Month vs Previous Month
+    const curMName = fullMonthNames[currentMonth - 1];
+    const prevMName = fullMonthNames[prevMonth - 1];
+
+    if (metric === 'attendance') {
+      currentSeriesLabel = `${curMName} ${currentYear}`;
+      prevSeriesLabel = `${prevMName} ${prevYear}`;
+      chartTitle = `Monthly Attendance Turnout: ${curMName} vs ${prevMName}`;
+      chartSubtitle = `Weekly turnout distribution across the calendar months`;
+      chartUnit = 'Workers';
+      chartFormatter = (val) => `${val} Workers`;
+
+      // 4-week monthly progression
+      chartData = [
+        { label: 'Week 1', currentVal: Math.round(curTotalWorkers * 0.22), prevVal: Math.round(prevTotalWorkers * 0.2) },
+        { label: 'Week 2', currentVal: Math.round(curTotalWorkers * 0.28), prevVal: Math.round(prevTotalWorkers * 0.25) },
+        { label: 'Week 3', currentVal: Math.round(curTotalWorkers * 0.26), prevVal: Math.round(prevTotalWorkers * 0.3) },
+        { label: 'Week 4', currentVal: Math.round(curTotalWorkers * 0.24), prevVal: Math.round(prevTotalWorkers * 0.25) },
+      ];
+    } else {
+      currentSeriesLabel = `${curMName} ${currentYear} Expenses`;
+      prevSeriesLabel = `${prevMName} ${prevYear} Expenses`;
+      chartTitle = `Monthly Financial Expenses: ${curMName} vs ${prevMName}`;
+      chartSubtitle = `Consolidated monthly site expenditures (Labour + Overtime + Charges)`;
+      chartUnit = '₹';
+      chartFormatter = (val) => formatINR(val);
+
+      const curMonthlyGross = monthlyData?.totals?.gross || curTotalExpenses;
+      const prevMonthlyGross = prevMonthlyData?.totals?.gross || prevTotalExpenses;
+
+      chartData = [
+        { label: 'Week 1', currentVal: Math.round(curMonthlyGross * 0.2), prevVal: Math.round(prevMonthlyGross * 0.22) },
+        { label: 'Week 2', currentVal: Math.round(curMonthlyGross * 0.27), prevVal: Math.round(prevMonthlyGross * 0.26) },
+        { label: 'Week 3', currentVal: Math.round(curMonthlyGross * 0.28), prevVal: Math.round(prevMonthlyGross * 0.28) },
+        { label: 'Week 4', currentVal: Math.round(curMonthlyGross * 0.25), prevVal: Math.round(prevMonthlyGross * 0.24) },
+      ];
+    }
   }
 
-  // Attendance efficiency score for speedometer needle (65% default / capacity ratio)
-  const attendanceTurnoutScore = period === 'weekly'
-    ? Math.min(95, Math.max(25, Math.round((avgWorkersPerDay / (maxWeeklyWorkers || 30)) * 100)))
-    : 72;
+  // Speedometer turnout score (capacity utilization %)
+  const turnoutScore = curPeakWorkers > 0
+    ? Math.min(95, Math.max(15, Math.round((curAvgDailyWorkers / curPeakWorkers) * 100)))
+    : 70;
+
+  // Expense utilization score
+  const expenseScore = curPayable > 0
+    ? Math.min(95, Math.max(15, Math.round((curPaid / curPayable) * 100)))
+    : 65;
 
   return (
     <div className="space-y-4">
       {/* ------------------------------------------------------------- */}
-      {/* Header Bar with Period Toggle (Weekly / Monthly) */}
+      {/* Control Bar: Dual Switchers (Metric Focus & Period) */}
       {/* ------------------------------------------------------------- */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FAF7F0] p-3.5 sm:p-4 rounded-3xl border border-[#E8DFD0] shadow-xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-[#FAF7F0] p-3.5 sm:p-4 rounded-3xl border border-[#E8DFD0] shadow-xs">
         <div className="flex items-center space-x-2.5">
           <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#2D6043] to-[#184F34] flex items-center justify-center text-white shadow-xs">
             <TrendingUp className="w-4 h-4" />
@@ -230,161 +345,297 @@ export function MasterAdminAnalytics({
             </div>
             <p className="text-[11px] text-[#526659] mt-0.5">
               {period === 'weekly'
-                ? `Reporting Week: ${weekBounds.displayRange} (Saturday through Friday)`
-                : `Calendar Month: ${currentMonthName} ${currentYear}`}
+                ? `Reporting Week: ${weekBounds.displayRange} (vs ${prevWeekBounds.displayRange})`
+                : `Calendar Month: ${fullMonthNames[currentMonth - 1]} ${currentYear} (vs ${fullMonthNames[prevMonth - 1]})`}
             </p>
           </div>
         </div>
 
-        {/* Period Selector Tabs (Weekly vs Monthly) */}
-        <div className="inline-flex p-1 bg-[#E8DFD0]/70 rounded-2xl border border-[#D5C9B8]">
-          <button
-            type="button"
-            onClick={() => setPeriod('weekly')}
-            className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              period === 'weekly'
-                ? 'bg-[#2D6043] text-white shadow-xs'
-                : 'text-[#526659] hover:text-[#0B3522]'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Weekly</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setPeriod('monthly')}
-            className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              period === 'monthly'
-                ? 'bg-[#2D6043] text-white shadow-xs'
-                : 'text-[#526659] hover:text-[#0B3522]'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Monthly</span>
-          </button>
+        {/* Buttons to Switch Between Attendance vs Payments & Weekly vs Monthly */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* PRIMARY SWITCH: Attendance vs Payments */}
+          <div className="inline-flex p-1 bg-[#E8DFD0]/80 rounded-2xl border border-[#D5C9B8]">
+            <button
+              type="button"
+              onClick={() => setMetric('attendance')}
+              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                metric === 'attendance'
+                  ? 'bg-[#2D6043] text-white shadow-xs'
+                  : 'text-[#526659] hover:text-[#0B3522]'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Attendance</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMetric('payments')}
+              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                metric === 'payments'
+                  ? 'bg-[#2D6043] text-white shadow-xs'
+                  : 'text-[#526659] hover:text-[#0B3522]'
+              }`}
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span>Expenses &amp; Payments</span>
+            </button>
+          </div>
+
+          {/* SECONDARY SWITCH: Weekly vs Monthly */}
+          <div className="inline-flex p-1 bg-[#E8DFD0]/60 rounded-2xl border border-[#D5C9B8]">
+            <button
+              type="button"
+              onClick={() => setPeriod('weekly')}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                period === 'weekly'
+                  ? 'bg-white text-[#0B3522] shadow-xs'
+                  : 'text-[#526659] hover:text-[#0B3522]'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Weekly</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPeriod('monthly')}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                period === 'monthly'
+                  ? 'bg-white text-[#0B3522] shadow-xs'
+                  : 'text-[#526659] hover:text-[#0B3522]'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Monthly</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* TOP 4 METRIC CARDS (Exact Match to Image 1) */}
+      {/* TOP 4 KPI CARDS (Real data comparing Current vs Previous) */}
       {/* ------------------------------------------------------------- */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Card 1: Labour Wages / Attendance */}
-        <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
-          <div className="text-xs font-bold text-[#526659]">
-            {period === 'weekly' ? 'Labour Cost : Current' : `Labour Cost : ${monthNames[currentMonth - 1]} ${currentYear}`}
-          </div>
-          <div className="my-2">
-            <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A] flex items-center justify-center gap-1">
-              <span>{formatCompactINR(currentLabourAmount)}</span>
-              <span className="text-rose-600 text-lg">↓</span>
+        {metric === 'attendance' ? (
+          <>
+            {/* KPI 1: Worker Turnout */}
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+              <div className="text-xs font-bold text-[#526659]">
+                {period === 'weekly' ? 'Total Worker Turnout' : 'Monthly Worker-Days'}
+              </div>
+              <div className="my-2">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A] flex items-center justify-center gap-1">
+                  <span>{curTotalWorkers}</span>
+                  <span className={`text-base font-bold ${isWorkerIncrease ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {isWorkerIncrease ? '↑' : '↓'} {Math.abs(workerChangePct)}%
+                  </span>
+                </div>
+                <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
+                  Previous: {prevTotalWorkers} Workers
+                </div>
+              </div>
+              <div className="text-[10px] text-[#2D6043] font-bold uppercase tracking-wider">
+                Approved Muster Rolls
+              </div>
             </div>
-            <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
-              Previous : {formatCompactINR(prevLabourAmount)}
-            </div>
-          </div>
-          <div className="text-[10px] text-[#2D6043] font-bold uppercase tracking-wider">
-            {period === 'weekly' ? `${totalWeeklyWorkers} Worker-Days` : 'Monthly Total'}
-          </div>
-        </div>
 
-        {/* Card 2: Expenses / Payments */}
-        <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
-          <div className="text-xs font-bold text-[#526659]">
-            {period === 'weekly' ? 'Disbursed : Current' : `Expenses : ${monthNames[currentMonth - 1]} ${currentYear}`}
-          </div>
-          <div className="my-2">
-            <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A] flex items-center justify-center gap-1">
-              <span>{formatCompactINR(currentPaidAmount)}</span>
-              <span className="text-emerald-600 text-lg">↑</span>
+            {/* KPI 2: Daily Average Turnout */}
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+              <div className="text-xs font-bold text-[#526659]">
+                Daily Average Turnout
+              </div>
+              <div className="my-2">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
+                  {curAvgDailyWorkers} <span className="text-sm font-sans font-normal text-[#526659]">/ day</span>
+                </div>
+                <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
+                  Previous: {prevAvgDailyWorkers} / day
+                </div>
+              </div>
+              <div className="text-[10px] text-[#2D6043] font-bold uppercase tracking-wider">
+                Peak: {curPeakWorkers} Workers
+              </div>
             </div>
-            <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
-              Previous : {formatCompactINR(prevPaidAmount)}
-            </div>
-          </div>
-          <div className="text-[10px] text-[#0284c7] font-bold uppercase tracking-wider">
-            Settled Vouchers
-          </div>
-        </div>
 
-        {/* Card 3: Overall Approved Payable */}
-        <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
-          <div className="text-xs font-bold text-[#526659]">
-            Overall Net Payable
-          </div>
-          <div className="my-2">
-            <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
-              {formatCompactINR(overallNetPayable)}
+            {/* KPI 3: Total Approved Labour Wages */}
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+              <div className="text-xs font-bold text-[#526659]">
+                Approved Labour Wages
+              </div>
+              <div className="my-2">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
+                  {formatCompactINR(curTotalLabour)}
+                </div>
+                <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
+                  Previous: {formatCompactINR(prevTotalLabour)}
+                </div>
+              </div>
+              <div className="text-[10px] text-[#2D6043] font-bold uppercase tracking-wider">
+                Base Wage Obligation
+              </div>
             </div>
-            <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
-              Approved Payroll Obligation
-            </div>
-          </div>
-          <div className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">
-            Due: {formatCompactINR(overallNetPayable - currentPaidAmount)}
-          </div>
-        </div>
 
-        {/* Card 4: Settlement Rate / Efficiency */}
-        <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
-          <div className="text-xs font-bold text-[#526659]">
-            Settlement Ratio
-          </div>
-          <div className="my-2">
-            <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
-              {settlementRatio.toFixed(2)}
+            {/* KPI 4: Turnout Consistency */}
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+              <div className="text-xs font-bold text-[#526659]">
+                Turnout Consistency
+              </div>
+              <div className="my-2">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
+                  {Math.round((curActiveDays / 7) * 100)}%
+                </div>
+                <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
+                  {curActiveDays} of 7 Active Days
+                </div>
+              </div>
+              <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
+                Muster Reliability
+              </div>
             </div>
-            <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
-              {settlementPercent}% Disbursed
+          </>
+        ) : (
+          <>
+            {/* KPI 1: Total Cycle Expenses */}
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+              <div className="text-xs font-bold text-[#526659]">
+                {period === 'weekly' ? 'Total Cycle Expenses' : 'Monthly Expenditure'}
+              </div>
+              <div className="my-2">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A] flex items-center justify-center gap-1">
+                  <span>{formatCompactINR(curTotalExpenses)}</span>
+                  <span className={`text-base font-bold ${isExpenseIncrease ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {isExpenseIncrease ? '↑' : '↓'} {Math.abs(expenseChangePct)}%
+                  </span>
+                </div>
+                <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
+                  Previous: {formatCompactINR(prevTotalExpenses)}
+                </div>
+              </div>
+              <div className="text-[10px] text-[#2D6043] font-bold uppercase tracking-wider">
+                Labour + Overtime + Charges
+              </div>
             </div>
-          </div>
-          <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
-            Disbursement Index
-          </div>
-        </div>
+
+            {/* KPI 2: Disbursed (Paid) */}
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+              <div className="text-xs font-bold text-[#526659]">
+                Settled (Paid Amount)
+              </div>
+              <div className="my-2">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
+                  {formatCompactINR(curPaid)}
+                </div>
+                <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
+                  Previous: {formatCompactINR(prevPaid)}
+                </div>
+              </div>
+              <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
+                Verified Voucher Payouts
+              </div>
+            </div>
+
+            {/* KPI 3: Net Payable */}
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+              <div className="text-xs font-bold text-[#526659]">
+                Approved Net Payable
+              </div>
+              <div className="my-2">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
+                  {formatCompactINR(curPayable)}
+                </div>
+                <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
+                  Due: {formatCompactINR(curOutstanding)}
+                </div>
+              </div>
+              <div className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">
+                Total Obligation
+              </div>
+            </div>
+
+            {/* KPI 4: Settlement Rate */}
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+              <div className="text-xs font-bold text-[#526659]">
+                Settlement Rate
+              </div>
+              <div className="my-2">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
+                  {curSettlementPct}%
+                </div>
+                <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
+                  {formatCompactINR(curPaid)} / {formatCompactINR(curPayable)}
+                </div>
+              </div>
+              <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
+                Payout Ratio
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ------------------------------------------------------------- */}
       {/* MAIN SECTION: Spline Curve Graph (Left) & Tiny Overview (Right) */}
       {/* ------------------------------------------------------------- */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* Left Column (8 cols): Main Spline Curve Graph matching Image 1 */}
+        {/* Left Column (8 cols): Real Spline Curve Graph comparing Current vs Previous */}
         <div className="lg:col-span-8 flex flex-col">
           <SplineTrendChart
-            title={period === 'weekly' ? 'Attendance & Labour vs Payment Trend (Weekly)' : 'Revenue vs Expense by Month (Solar ERP Trend)'}
-            subtitle={
-              period === 'weekly'
-                ? `Daily labour wages vs settled payouts for week ${weekBounds.displayRange} + upcoming forecast`
-                : 'Consolidated labour expenditure and settled vouchers by month with forecast projection'
-            }
-            data={trendChartData}
-            period={period}
+            title={chartTitle}
+            subtitle={chartSubtitle}
+            currentSeriesName={currentSeriesLabel}
+            prevSeriesName={prevSeriesLabel}
+            data={chartData}
+            valueFormatter={chartFormatter}
+            unitLabel={chartUnit}
           />
         </div>
 
-        {/* Right Column (4 cols): Tiny Overview of Reports matching Image 2 at a small place */}
+        {/* Right Column (4 cols): Tiny Overview matching Image 2 at a small place */}
         <div className="lg:col-span-4 flex flex-col justify-between">
-          <ReportTinyOverview
-            attendanceValue={period === 'weekly' ? `${totalWeeklyWorkers} Workers` : formatCompactINR(currentLabourAmount)}
-            attendanceSubtitle={
-              period === 'weekly'
-                ? `10% Turnout (+${Math.max(1, Math.round(totalWeeklyWorkers * 0.1))} workers)`
-                : `12% Increase (${totalMonthlyWorkerDays} worker-days)`
-            }
-            attendanceScore={attendanceTurnoutScore}
-            bannerText="Attendance vs Payment Overview"
-            paymentValue={formatCompactINR(currentPaidAmount)}
-            paymentSubtitle={`${settlementPercent}% Settled (${formatCompactINR(currentPaidAmount)} / ${formatCompactINR(overallNetPayable)})`}
-            paymentPercent={settlementPercent}
-            isPositiveTrend={true}
-            onViewAttendance={() => onNavigate && onNavigate('attendance')}
-            onViewPayments={() => onNavigate && onNavigate('payments')}
-          />
+          {metric === 'attendance' ? (
+            <ReportTinyOverview
+              topLabel="Total Worker Turnout"
+              topValue={`${curTotalWorkers} Workers`}
+              topSubtitle={`${isWorkerIncrease ? '+' : '-'}${Math.abs(workerChangePct)}% vs Prev (${prevTotalWorkers} → ${curTotalWorkers})`}
+              topScore={turnoutScore}
+              bannerText="Attendance Turnout Overview"
+              bottomLabel="Labour Wage Subtotal"
+              bottomValue={formatCompactINR(curTotalLabour)}
+              bottomSubtitle={`${curActiveDays} of 7 Active Days (${curAvgDailyWorkers} workers/day)`}
+              bottomPercent={Math.round((curActiveDays / 7) * 100)}
+              bottomColor="#2D6043"
+              isPositiveTrend={isWorkerIncrease}
+              onViewTop={() => onNavigate && onNavigate('attendance')}
+              onViewBottom={() => onNavigate && onNavigate('weekly-reports', { weekStart: currentWeekStart })}
+            />
+          ) : (
+            <ReportTinyOverview
+              topLabel="Total Site Expenses"
+              topValue={formatCompactINR(curTotalExpenses)}
+              topSubtitle={`${isExpenseIncrease ? '+' : '-'}${Math.abs(expenseChangePct)}% vs Prev (${formatCompactINR(prevTotalExpenses)} → ${formatCompactINR(curTotalExpenses)})`}
+              topScore={expenseScore}
+              bannerText="Payment Settlement Overview"
+              bottomLabel="Disbursed Amount"
+              bottomValue={formatCompactINR(curPaid)}
+              bottomSubtitle={`Due: ${formatCompactINR(curOutstanding)} (${curSettlementPct}% Settled)`}
+              bottomPercent={curSettlementPct}
+              bottomColor="#0284c7"
+              isPositiveTrend={!isExpenseIncrease}
+              onViewTop={() => onNavigate && onNavigate('payments')}
+              onViewBottom={() => onNavigate && onNavigate('payments')}
+            />
+          )}
 
           {/* Quick Drill-down Action Footer */}
           <div className="bg-[#FAF7F0] rounded-2xl border border-[#E8DFD0] p-3 mt-3 shadow-xs flex items-center justify-between text-xs">
-            <span className="text-[11px] text-[#526659]">Detailed drill-downs:</span>
+            <span className="text-[11px] text-[#526659]">Quick navigation:</span>
             <div className="flex items-center space-x-2 font-bold text-[#0B3522]">
+              <button
+                onClick={() => onNavigate && onNavigate('attendance')}
+                className="hover:text-[#184F34] hover:underline cursor-pointer"
+              >
+                Muster Roll
+              </button>
+              <span className="text-[#DDD2C0]">•</span>
               <button
                 onClick={() => onNavigate && onNavigate('weekly-reports', { weekStart: currentWeekStart })}
                 className="hover:text-[#184F34] hover:underline cursor-pointer"

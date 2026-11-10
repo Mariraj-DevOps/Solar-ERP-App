@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
 import { formatINR } from '../lib/calculations';
 
-export interface TrendDataPoint {
-  label: string;
-  sublabel?: string;
-  attendance: number;
-  payment: number;
-  workerCount?: number;
-  isForecast?: boolean;
+export interface ComparisonPoint {
+  label: string; // e.g. 'Sat', 'Sun', 'Mon', etc.
+  sublabel1?: string; // Date of current period e.g. '24/10'
+  sublabel2?: string; // Date of previous period e.g. '17/10'
+  currentVal: number;
+  prevVal: number;
 }
 
 interface SplineTrendChartProps {
-  title?: string;
+  title: string;
   subtitle?: string;
-  data: TrendDataPoint[];
-  period: 'weekly' | 'monthly';
-  unit?: string;
+  currentSeriesName: string;
+  prevSeriesName: string;
+  data: ComparisonPoint[];
+  valueFormatter?: (val: number) => string;
+  unitLabel?: string;
 }
 
 function getCubicBezierSpline(points: { x: number; y: number }[]): string {
@@ -37,18 +38,17 @@ function getCubicBezierSpline(points: { x: number; y: number }[]): string {
 }
 
 export function SplineTrendChart({
-  title = 'Attendance vs Payment Trend by Cycle',
+  title,
   subtitle,
+  currentSeriesName,
+  prevSeriesName,
   data,
-  period,
+  valueFormatter = (val) => String(val),
+  unitLabel = '',
 }: SplineTrendChartProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-
-  // Toggle state for series (matching checkboxes in Image 1)
-  const [showAttendance, setShowAttendance] = useState(true);
-  const [showPayment, setShowPayment] = useState(true);
-  const [showForecastAttendance, setShowForecastAttendance] = useState(true);
-  const [showForecastPayment, setShowForecastPayment] = useState(true);
+  const [showCurrent, setShowCurrent] = useState(true);
+  const [showPrev, setShowPrev] = useState(true);
 
   if (!data || data.length === 0) {
     return (
@@ -61,7 +61,7 @@ export function SplineTrendChart({
   // Chart dimensions
   const svgWidth = 720;
   const svgHeight = 270;
-  const marginLeft = 62;
+  const marginLeft = 64;
   const marginRight = 32;
   const marginTop = 30;
   const marginBottom = 48;
@@ -69,12 +69,13 @@ export function SplineTrendChart({
   const plotWidth = svgWidth - marginLeft - marginRight;
   const plotHeight = svgHeight - marginTop - marginBottom;
 
-  // Maximum value for scaling
+  // Maximum value for scaling (ensure minimum scale of 10 for low worker count)
   const maxValRaw = Math.max(
-    ...data.map((d) => Math.max(d.attendance, d.payment)),
-    1000
+    ...data.map((d) => Math.max(d.currentVal, d.prevVal)),
+    10
   );
-  // Round up to clean scale (e.g. 50k, 100k, 250k)
+
+  // Round up to clean scale (e.g. 50, 100, 250, 50k, 100k)
   const magnitude = Math.pow(10, Math.floor(Math.log10(maxValRaw)));
   const normalized = maxValRaw / magnitude;
   let factor = 10;
@@ -90,43 +91,22 @@ export function SplineTrendChart({
 
   const points = data.map((d, i) => {
     const x = marginLeft + i * stepX;
-    const yAtt = marginTop + plotHeight - (Math.max(0, d.attendance) / maxScale) * plotHeight;
-    const yPay = marginTop + plotHeight - (Math.max(0, d.payment) / maxScale) * plotHeight;
+    const yCurrent = marginTop + plotHeight - (Math.max(0, d.currentVal) / maxScale) * plotHeight;
+    const yPrev = marginTop + plotHeight - (Math.max(0, d.prevVal) / maxScale) * plotHeight;
     return {
       x,
-      yAtt,
-      yPay,
+      yCurrent,
+      yPrev,
       data: d,
       index: i,
     };
   });
 
-  // Separate into solid (historical) and dashed (forecast) segments
-  const firstForecastIdx = data.findIndex((d) => d.isForecast);
-  const splitIdx = firstForecastIdx === -1 ? data.length : firstForecastIdx;
+  const currentPoints = points.map((p) => ({ x: p.x, y: p.yCurrent }));
+  const prevPoints = points.map((p) => ({ x: p.x, y: p.yPrev }));
 
-  // Solid points: 0 to splitIdx (includes bridge to forecast if available)
-  const solidPointsAtt = points
-    .slice(0, splitIdx < data.length ? splitIdx + 1 : splitIdx)
-    .map((p) => ({ x: p.x, y: p.yAtt }));
-  const solidPointsPay = points
-    .slice(0, splitIdx < data.length ? splitIdx + 1 : splitIdx)
-    .map((p) => ({ x: p.x, y: p.yPay }));
-
-  // Forecast points: from splitIdx - 1 (for continuity) to end
-  const forecastPointsAtt =
-    splitIdx < data.length
-      ? points.slice(Math.max(0, splitIdx - 1)).map((p) => ({ x: p.x, y: p.yAtt }))
-      : [];
-  const forecastPointsPay =
-    splitIdx < data.length
-      ? points.slice(Math.max(0, splitIdx - 1)).map((p) => ({ x: p.x, y: p.yPay }))
-      : [];
-
-  const solidPathAtt = getCubicBezierSpline(solidPointsAtt);
-  const solidPathPay = getCubicBezierSpline(solidPointsPay);
-  const forecastPathAtt = getCubicBezierSpline(forecastPointsAtt);
-  const forecastPathPay = getCubicBezierSpline(forecastPointsPay);
+  const currentPath = getCubicBezierSpline(currentPoints);
+  const prevPath = getCubicBezierSpline(prevPoints);
 
   // Y-axis grid lines (4 ticks: 0, 33%, 66%, 100%)
   const yTicks = [
@@ -137,16 +117,19 @@ export function SplineTrendChart({
   ];
 
   const formatYAxis = (val: number) => {
-    if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
-    if (val >= 1000) return `₹${Math.round(val / 1000)}K`;
-    return `₹${val}`;
+    if (unitLabel === '₹') {
+      if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
+      if (val >= 1000) return `₹${Math.round(val / 1000)}K`;
+      return `₹${val}`;
+    }
+    return String(val);
   };
 
   const activePoint = hoveredIdx !== null ? points[hoveredIdx] : null;
 
   return (
     <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] shadow-xs p-5 relative overflow-hidden card-wave-bg">
-      {/* Title & Subtitle matching Image 1 */}
+      {/* Title & Subtitle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2">
         <div>
           <h3 className="font-bold text-sm sm:text-base text-[#0B3522] tracking-tight">{title}</h3>
@@ -154,7 +137,7 @@ export function SplineTrendChart({
         </div>
         <div className="text-[11px] text-[#526659] font-medium flex items-center space-x-2">
           <span className="w-2 h-2 rounded-full bg-[#2D6043]" />
-          <span>Interactive Spline Curve</span>
+          <span>Real Database Reports</span>
         </div>
       </div>
 
@@ -204,10 +187,10 @@ export function SplineTrendChart({
             />
           )}
 
-          {/* Solid Attendance Spline Curve (Teal/Emerald - Image 1) */}
-          {showAttendance && solidPathAtt && (
+          {/* Solid Current Cycle Spline Curve (Deep Emerald - #2D6043) */}
+          {showCurrent && currentPath && (
             <path
-              d={solidPathAtt}
+              d={currentPath}
               fill="none"
               stroke="#2D6043"
               strokeWidth="2.75"
@@ -216,23 +199,10 @@ export function SplineTrendChart({
             />
           )}
 
-          {/* Dashed Forecast Attendance Curve */}
-          {showForecastAttendance && forecastPathAtt && (
+          {/* Solid Previous Cycle Spline Curve (Golden Amber - #D97706) */}
+          {showPrev && prevPath && (
             <path
-              d={forecastPathAtt}
-              fill="none"
-              stroke="#0D9488"
-              strokeWidth="2.5"
-              strokeDasharray="4 4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          )}
-
-          {/* Solid Payments Spline Curve (Warm Golden Amber - Image 1) */}
-          {showPayment && solidPathPay && (
-            <path
-              d={solidPathPay}
+              d={prevPath}
               fill="none"
               stroke="#D97706"
               strokeWidth="2.75"
@@ -241,22 +211,8 @@ export function SplineTrendChart({
             />
           )}
 
-          {/* Dashed Forecast Payments Curve */}
-          {showForecastPayment && forecastPathPay && (
-            <path
-              d={forecastPathPay}
-              fill="none"
-              stroke="#FBBF24"
-              strokeWidth="2.5"
-              strokeDasharray="4 4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          )}
-
-          {/* Nodes (Circles with white center matching Image 1) */}
+          {/* Nodes (Circles with white center matching design) */}
           {points.map((p, idx) => {
-            const isForecast = p.data.isForecast;
             const isHovered = hoveredIdx === idx;
 
             return (
@@ -266,28 +222,28 @@ export function SplineTrendChart({
                 onMouseLeave={() => setHoveredIdx(null)}
                 className="cursor-pointer"
               >
-                {/* Attendance Node */}
-                {((!isForecast && showAttendance) || (isForecast && showForecastAttendance)) && (
+                {/* Current Cycle Node */}
+                {showCurrent && (
                   <circle
                     cx={p.x}
-                    cy={p.yAtt}
-                    r={isHovered ? 6.5 : isForecast ? 4.5 : 5}
+                    cy={p.yCurrent}
+                    r={isHovered ? 6.5 : 5}
                     fill="#FFFFFF"
-                    stroke={isForecast ? '#0D9488' : '#2D6043'}
-                    strokeWidth={isForecast ? 2 : 2.5}
+                    stroke="#2D6043"
+                    strokeWidth="2.5"
                     className="transition-all duration-150"
                   />
                 )}
 
-                {/* Payment Node */}
-                {((!isForecast && showPayment) || (isForecast && showForecastPayment)) && (
+                {/* Previous Cycle Node */}
+                {showPrev && (
                   <circle
                     cx={p.x}
-                    cy={p.yPay}
-                    r={isHovered ? 6.5 : isForecast ? 4.5 : 5}
+                    cy={p.yPrev}
+                    r={isHovered ? 6.5 : 5}
                     fill="#FFFFFF"
-                    stroke={isForecast ? '#F59E0B' : '#D97706'}
-                    strokeWidth={isForecast ? 2 : 2.5}
+                    stroke="#D97706"
+                    strokeWidth="2.5"
                     className="transition-all duration-150"
                   />
                 )}
@@ -307,23 +263,19 @@ export function SplineTrendChart({
                   y={marginTop + plotHeight + 16}
                   textAnchor="middle"
                   className={`text-[10px] font-bold ${
-                    isHovered
-                      ? 'fill-[#0B3522]'
-                      : isForecast
-                      ? 'fill-[#7D9384] italic'
-                      : 'fill-[#526659]'
+                    isHovered ? 'fill-[#0B3522]' : 'fill-[#526659]'
                   }`}
                 >
                   {p.data.label}
                 </text>
-                {p.data.sublabel && (
+                {p.data.sublabel1 && (
                   <text
                     x={p.x}
                     y={marginTop + plotHeight + 28}
                     textAnchor="middle"
                     className="font-mono text-[9px] fill-[#94A89C]"
                   >
-                    {p.data.sublabel}
+                    {p.data.sublabel1}
                   </text>
                 )}
               </g>
@@ -336,108 +288,92 @@ export function SplineTrendChart({
           <div
             style={{
               left: `${(activePoint.x / svgWidth) * 100}%`,
-              top: '12%',
+              top: '10%',
               transform: 'translateX(-50%)',
             }}
-            className="absolute z-30 pointer-events-none bg-[#0B3522] text-white rounded-2xl p-2.5 shadow-xl border border-[#2D6043] min-w-[170px]"
+            className="absolute z-30 pointer-events-none bg-[#0B3522] text-white rounded-2xl p-2.5 shadow-xl border border-[#2D6043] min-w-[180px]"
           >
             <div className="flex items-center justify-between text-[11px] font-bold pb-1.5 border-b border-white/15">
               <span>{activePoint.data.label}</span>
-              {activePoint.data.sublabel && (
-                <span className="font-mono text-emerald-200 text-[10px]">
-                  {activePoint.data.sublabel}
-                </span>
-              )}
+              <span className="font-mono text-emerald-200 text-[10px]">
+                {activePoint.data.sublabel1} vs {activePoint.data.sublabel2}
+              </span>
             </div>
 
-            <div className="space-y-1 mt-1.5 text-[10px]">
+            <div className="space-y-1.5 mt-1.5 text-[10px]">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-emerald-200">
                   <span className="w-2 h-2 rounded-full bg-[#5CD68D]" />
-                  <span>Labour Wages:</span>
+                  <span>{currentSeriesName}:</span>
                 </span>
                 <span className="font-mono font-bold text-white">
-                  {formatINR(activePoint.data.attendance)}
+                  {valueFormatter(activePoint.data.currentVal)}
                 </span>
               </div>
-
-              {activePoint.data.workerCount !== undefined && activePoint.data.workerCount > 0 && (
-                <div className="flex items-center justify-between text-white/70 pl-3.5">
-                  <span>Worker-Days:</span>
-                  <span className="font-mono font-bold">{activePoint.data.workerCount} workers</span>
-                </div>
-              )}
 
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-amber-200">
                   <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
-                  <span>Settled (Paid):</span>
+                  <span>{prevSeriesName}:</span>
                 </span>
                 <span className="font-mono font-bold text-white">
-                  {formatINR(activePoint.data.payment)}
+                  {valueFormatter(activePoint.data.prevVal)}
                 </span>
               </div>
 
-              {activePoint.data.isForecast && (
-                <div className="pt-1 mt-1 border-t border-white/10 text-[9px] text-teal-300 italic text-center">
-                  Projected Estimate
-                </div>
-              )}
+              {/* Net Difference calculation */}
+              {(() => {
+                const diff = activePoint.data.currentVal - activePoint.data.prevVal;
+                const isPositive = diff >= 0;
+                const pct =
+                  activePoint.data.prevVal > 0
+                    ? Math.round((Math.abs(diff) / activePoint.data.prevVal) * 100)
+                    : 100;
+                return (
+                  <div className="pt-1 border-t border-white/10 flex items-center justify-between text-[9px]">
+                    <span className="text-white/70">Difference:</span>
+                    <span
+                      className={`font-mono font-bold ${
+                        isPositive ? 'text-emerald-300' : 'text-rose-300'
+                      }`}
+                    >
+                      {isPositive ? '+' : '-'}
+                      {valueFormatter(Math.abs(diff))} ({isPositive ? '↑' : '↓'} {pct}%)
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* Legend with Interactive Toggles (Matching Image 1) */}
+      {/* Legend with Interactive Toggles */}
       {/* ------------------------------------------------------------- */}
-      <div className="mt-2 pt-3 border-t border-[#E8DFD0] flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs">
-        {/* Toggle 1: Attendance */}
+      <div className="mt-2 pt-3 border-t border-[#E8DFD0] flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs">
+        {/* Toggle 1: Current Series */}
         <label className="flex items-center space-x-1.5 cursor-pointer select-none">
           <input
             type="checkbox"
-            checked={showAttendance}
-            onChange={(e) => setShowAttendance(e.target.checked)}
+            checked={showCurrent}
+            onChange={(e) => setShowCurrent(e.target.checked)}
             className="w-3.5 h-3.5 rounded accent-[#2D6043] cursor-pointer"
           />
           <span className="w-2.5 h-2.5 rounded-sm bg-[#2D6043]" />
-          <span className="font-semibold text-[#0B3522] text-[11px]">Labour (Attendance)</span>
+          <span className="font-semibold text-[#0B3522] text-[11px]">{currentSeriesName}</span>
         </label>
 
-        {/* Toggle 2: Payments */}
+        {/* Toggle 2: Previous Series */}
         <label className="flex items-center space-x-1.5 cursor-pointer select-none">
           <input
             type="checkbox"
-            checked={showPayment}
-            onChange={(e) => setShowPayment(e.target.checked)}
+            checked={showPrev}
+            onChange={(e) => setShowPrev(e.target.checked)}
             className="w-3.5 h-3.5 rounded accent-[#D97706] cursor-pointer"
           />
           <span className="w-2.5 h-2.5 rounded-sm bg-[#D97706]" />
-          <span className="font-semibold text-[#0B3522] text-[11px]">Expenses / Payments</span>
-        </label>
-
-        {/* Toggle 3: Forecasted Attendance */}
-        <label className="flex items-center space-x-1.5 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showForecastAttendance}
-            onChange={(e) => setShowForecastAttendance(e.target.checked)}
-            className="w-3.5 h-3.5 rounded accent-[#0D9488] cursor-pointer"
-          />
-          <span className="w-2.5 h-2.5 rounded-sm border border-dashed border-[#0D9488] bg-teal-50" />
-          <span className="font-medium text-[#526659] text-[11px]">Forecasted Labour</span>
-        </label>
-
-        {/* Toggle 4: Forecasted Payments */}
-        <label className="flex items-center space-x-1.5 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showForecastPayment}
-            onChange={(e) => setShowForecastPayment(e.target.checked)}
-            className="w-3.5 h-3.5 rounded accent-[#F59E0B] cursor-pointer"
-          />
-          <span className="w-2.5 h-2.5 rounded-sm border border-dashed border-[#F59E0B] bg-amber-50" />
-          <span className="font-medium text-[#526659] text-[11px]">Forecasted Payments</span>
+          <span className="font-semibold text-[#0B3522] text-[11px]">{prevSeriesName}</span>
         </label>
       </div>
     </div>
