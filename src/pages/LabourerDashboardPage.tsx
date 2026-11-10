@@ -407,7 +407,7 @@ function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: n
   const isCheckedOut = Boolean(todayRecord && todayRecord.check_out_time);
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col justify-between max-w-md mx-auto shadow-2xl relative">
+    <div className="min-h-screen bg-[#EEE5D4] flex flex-col justify-between max-w-md mx-auto shadow-2xl relative">
       {/* Top Mobile Header */}
       <header className="bg-[#0E6037] text-white px-4 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-md">
         <div className="flex items-center space-x-2.5">

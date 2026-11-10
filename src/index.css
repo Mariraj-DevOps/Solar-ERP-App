@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+body {
+  background-color: #EEE5D4;
+}
+
 /* Hide scrollbars globally across modern browsers while preserving full scrollability */
 html, body, * {
   scrollbar-width: none !important;

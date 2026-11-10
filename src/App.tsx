@@ -64,7 +64,7 @@ function ERPContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F0F4F2] flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[#EEE5D4] flex flex-col md:flex-row">
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
 
       {/* Mobile-only top header bar with logo */}
