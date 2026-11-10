@@ -1,11 +1,13 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, ArrowLeft } from 'lucide-react';
 
 interface TopWaveHeaderProps {
   title?: string;
   subtitle?: string;
   showClose?: boolean;
   onClose?: () => void;
+  showBack?: boolean;
+  onBack?: () => void;
   className?: string;
 }
 
@@ -14,6 +16,8 @@ export function TopWaveHeader({
   subtitle = 'Labour Attendance ERP',
   showClose = false,
   onClose,
+  showBack = false,
+  onBack,
   className = '',
 }: TopWaveHeaderProps) {
   return (
@@ -63,7 +67,19 @@ export function TopWaveHeader({
 
       {/* Content Bar */}
       <div className="relative z-10 px-4 sm:px-6 pt-3.5 pb-3 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2.5">
+          {showBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="w-9 h-9 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center shadow-xs border border-white/20 transition-all cursor-pointer shrink-0 mr-1"
+              aria-label="Go back"
+              title="Go back"
+            >
+              <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
+            </button>
+          )}
+
           <div className="w-11 h-11 rounded-2xl bg-white p-1.5 shadow-md flex items-center justify-center shrink-0 border border-white/30">
             <img
               src="/assets/aistudio/solar_designs_clean_logo_bf464b07.png"

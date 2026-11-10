@@ -1256,10 +1256,10 @@ export function seedComprehensiveDemoData(force = false) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  insertNotif.run('notif-demo-01', 'usr-admin-01', 'New Attendance Submitted for Approval', 'Staff User submitted attendance for Centring Murugan (19/10/2026) with 21 workers.', 'approval', '/approvals', 0, now);
-  insertNotif.run('notif-demo-02', 'usr-admin-01', 'Attendance Revision Proposed', 'Staff User requested revision for Vishnu Civil Labour (20/10/2026). Reason: Site engineer counted 2 extra masons.', 'revision', '/approvals', 0, now);
-  insertNotif.run('notif-demo-03', 'usr-staff-01', 'Attendance Approved', 'Your attendance submission for Heeralal (17/10/2026) was approved by ERP Administrator.', 'approval', '/daily', 0, now);
-  insertNotif.run('notif-demo-04', 'usr-staff-01', 'Weekly Payment Disbursed', 'Cheque voucher CHQ-88210 (₹1,10,000) recorded for week starting 17/10/2026.', 'payment', '/payments', 1, now);
+  insertNotif.run('notif-demo-01', 'usr-admin-01', 'New Attendance Submission', 'Staff User submitted attendance for Centring Murugan (21 workers).', 'approval', '/approvals', 0, now);
+  insertNotif.run('notif-demo-02', 'usr-admin-01', 'Attendance Revision', 'Staff User requested revision for Vishnu Civil Labour (20/10/2026).', 'revision', '/approvals', 0, now);
+  insertNotif.run('notif-demo-03', 'usr-staff-01', 'Attendance Approved', 'Attendance for Heeralal (17/10/2026) approved.', 'approval', '/daily', 0, now);
+  insertNotif.run('notif-demo-04', 'usr-staff-01', 'Payment Disbursed', 'Voucher CHQ-88210 (₹1,10,000) recorded for week starting 17/10/2026.', 'payment', '/payments', 1, now);
 }
 
 export async function sendExpoPushNotification(params: {

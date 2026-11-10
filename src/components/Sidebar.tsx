@@ -82,6 +82,19 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
 
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
 
+  // Mobile Back Button: Close mobile menu if open instead of exiting
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    window.history.pushState({ modal: 'mobileMenu' }, '');
+    const handlePop = () => {
+      setMobileMenuOpen(false);
+    };
+    window.addEventListener('popstate', handlePop);
+    return () => {
+      window.removeEventListener('popstate', handlePop);
+    };
+  }, [mobileMenuOpen]);
+
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
       const next = !prev;

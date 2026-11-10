@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { TopWaveHeader } from './components/TopWaveHeader';
@@ -29,11 +29,86 @@ function ERPContent() {
   const { user, isLoading, isAdminAny, isLabourer } = useAuth();
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [navParams, setNavParams] = useState<any>({});
+  const tabHistoryRef = useRef<NavTab[]>(['dashboard']);
 
-  const handleNavigate = (tab: NavTab, params?: any) => {
+  const handleNavigate = (tab: NavTab, params?: any, pushHistory = true) => {
     if (params) setNavParams(params);
+    if (tab === currentTab) return;
+    if (pushHistory) {
+      tabHistoryRef.current.push(tab);
+      window.history.pushState({ tab, depth: tabHistoryRef.current.length }, '', `#${tab}`);
+    }
     setCurrentTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const handleBack = () => {
+    if (tabHistoryRef.current.length > 1) {
+      tabHistoryRef.current.pop();
+      const prevTab = tabHistoryRef.current[tabHistoryRef.current.length - 1] || 'dashboard';
+      if (window.history.state?.tab) {
+        window.history.back();
+      } else {
+        setCurrentTab(prevTab);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } else if (currentTab !== 'dashboard') {
+      setCurrentTab('dashboard');
+      tabHistoryRef.current = ['dashboard'];
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    // Initial history state on root load
+    if (!window.history.state?.tab) {
+      window.history.replaceState({ tab: 'dashboard', depth: 1 }, '', '#dashboard');
+    }
+
+    const onPopState = (event: PopStateEvent) => {
+      const targetTab = event.state?.tab as NavTab | undefined;
+      if (targetTab) {
+        if (tabHistoryRef.current.length > 1) {
+          tabHistoryRef.current.pop();
+        }
+        setCurrentTab(targetTab);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        // If history pops back to empty/root while on subpage, go to dashboard
+        if (currentTab !== 'dashboard') {
+          setCurrentTab('dashboard');
+          tabHistoryRef.current = ['dashboard'];
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+
+    // React Native WebView Android hardware back press bridge
+    const onNativeMessage = (event: MessageEvent) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data?.type === 'HARDWARE_BACK_PRESS' || data?.type === 'BACK_BUTTON_PRESSED') {
+          if (currentTab !== 'dashboard') {
+            handleBack();
+            if ((window as any).ReactNativeWebView) {
+              (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'HANDLED_BACK', handled: true }));
+            }
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('message', onNativeMessage);
+    document.addEventListener('message' as any, onNativeMessage);
+
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('message', onNativeMessage);
+      document.removeEventListener('message' as any, onNativeMessage);
+    };
+  }, [currentTab]);
 
   if (isLoading) {
     return (
@@ -66,13 +141,15 @@ function ERPContent() {
 
   return (
     <div className="min-h-screen bg-[#EEE5D4] flex flex-col md:flex-row">
-      <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
+      <Sidebar currentTab={currentTab} onTabChange={(tab) => handleNavigate(tab, undefined, true)} />
 
-      {/* Mobile-only wavy top header bar with logo matching Image 1 */}
+      {/* Mobile-only wavy top header bar with logo & back button matching Image 1 */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-30 shadow-md">
         <TopWaveHeader
           title="Solar Designs Pvt Ltd"
           subtitle="Labour Attendance ERP"
+          showBack={currentTab !== 'dashboard'}
+          onBack={handleBack}
         />
       </header>
 

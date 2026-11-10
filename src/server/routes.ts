@@ -369,8 +369,8 @@ apiRouter.post('/auth/otp/request', async (req: Request, res: Response) => {
   // Also create persistent in-app notification for the user
   createNotification({
     userId: user.id,
-    title: 'Your Login OTP',
-    message: `Your one-time login verification code is ${otpCode}. It expires in 5 minutes.`,
+    title: 'Login OTP',
+    message: `Your login code is ${otpCode}. Valid for 5 mins.`,
     type: 'info',
   });
 
@@ -814,7 +814,7 @@ apiRouter.patch('/users/:id/reset-password', requireAuth, requireStaffOrAdmin, (
   createNotification({
     userId: id,
     title: 'Password Updated',
-    message: `Your account password has been updated by ${req.user!.fullName}.`,
+    message: `Password changed by ${req.user!.fullName}.`,
     type: 'info',
   });
 
@@ -1430,8 +1430,8 @@ apiRouter.post('/teams', requireAuth, (req: Request, res: Response) => {
 
       createNotification({
         userId: assignedAdmin.id,
-        title: 'New Team Geofence Approval Required',
-        message: `${req.user!.fullName} created team "${name.trim()}" and submitted worksite location for approval.`,
+        title: 'Geofence Approval Required',
+        message: `${req.user!.fullName} created team "${name.trim()}". Approval required.`,
         type: 'approval',
         link: '/approvals',
       });
@@ -1646,8 +1646,8 @@ apiRouter.put('/teams/:id', requireAuth, (req: Request, res: Response) => {
 
         createNotification({
           userId: assignedAdmin.id,
-          title: 'Geofence Location Change Request',
-          message: `${req.user!.fullName} requested site geofence change for team "${currentTeam.name}": ${reasonText}`,
+          title: 'Geofence Change Request',
+          message: `${req.user!.fullName} requested geofence change for "${currentTeam.name}".`,
           type: 'approval',
           link: '/approvals',
         });
@@ -1931,8 +1931,8 @@ apiRouter.post('/attendance', requireAuth, (req: Request, res: Response) => {
       const targetAdminId = assigned ? assigned.secondary_admin_id : 'usr-admin-01';
       createNotification({
         userId: targetAdminId,
-        title: 'New Attendance Submission',
-        message: `${req.user!.fullName} submitted attendance for ${date} awaiting your approval.`,
+        title: 'Attendance Submitted',
+        message: `${req.user!.fullName} submitted attendance for ${date}.`,
         type: 'approval',
         link: '/approvals',
       });
@@ -2026,7 +2026,7 @@ apiRouter.put('/attendance/:id', requireAuth, (req: Request, res: Response) => {
     createNotification({
       userId: 'usr-admin-01',
       title: 'Attendance Change Request',
-      message: `${req.user!.fullName} requested changes to approved attendance on ${currentEntry.date}. Reason: ${changeReason}`,
+      message: `${req.user!.fullName} requested revision for ${currentEntry.date}.`,
       type: 'approval',
       link: '/approvals',
     });
@@ -2121,8 +2121,8 @@ apiRouter.put('/attendance/:id', requireAuth, (req: Request, res: Response) => {
     if (isAdminEdit) {
       createNotification({
         userId: currentEntry.owner_user_id,
-        title: 'Attendance Modified by Administrator',
-        message: `${req.user!.fullName} modified your attendance entry for ${currentEntry.date}. Reason: ${changeReason || 'Administrative update'}`,
+        title: 'Attendance Updated',
+        message: `${req.user!.fullName} updated your attendance for ${currentEntry.date}.`,
         type: 'modification',
       });
     }
@@ -2274,7 +2274,7 @@ apiRouter.post('/attendance/:id/approve', requireAuth, requireAdmin, (req: Reque
   createNotification({
     userId: entry.owner_user_id,
     title: 'Attendance Approved',
-    message: `Your attendance submission for ${entry.date} has been approved by ${req.user!.fullName}.`,
+    message: `Your attendance for ${entry.date} was approved.`,
     type: 'approval',
   });
 
@@ -2326,7 +2326,7 @@ apiRouter.post('/attendance/:id/reject', requireAuth, requireAdmin, (req: Reques
   createNotification({
     userId: entry.owner_user_id,
     title: 'Attendance Rejected',
-    message: `Your attendance submission for ${entry.date} was rejected. Reason: ${reason.trim()}`,
+    message: `Attendance for ${entry.date} rejected: ${reason.trim()}`,
     type: 'rejection',
   });
 
@@ -3037,8 +3037,8 @@ apiRouter.post('/payments/mark-paid', requireAuth, (req: Request, res: Response)
 
   createNotification({
     userId: staffUserId,
-    title: isOverride ? 'Payment Override Recorded' : 'Payment Status Updated',
-    message: `Payment for week starting ${weekStartDate} has been recorded as ${status} (₹${paid} settled).`,
+    title: isOverride ? 'Payment Override' : 'Payment Updated',
+    message: `Week ${weekStartDate}: ${status} (₹${paid} settled).`,
     type: 'payment',
   });
 
@@ -3797,8 +3797,8 @@ apiRouter.post('/worksites', requireAuth, requireStaffOrAdmin, (req: Request, re
 
     createNotification({
       userId: assignedAdmin.id,
-      title: 'New Worksite Approval Request',
-      message: `${req.user!.fullName} requested creation of worksite "${name}": ${reason.trim()}`,
+      title: 'Worksite Approval Request',
+      message: `${req.user!.fullName} requested worksite "${name}".`,
       type: 'approval',
       link: '/approvals',
     });
@@ -3946,8 +3946,8 @@ apiRouter.put('/worksites/:id', requireAuth, requireStaffOrAdmin, (req: Request,
 
     createNotification({
       userId: assignedAdmin.id,
-      title: 'Worksite Configuration Change Request',
-      message: `${req.user!.fullName} requested changes for worksite "${existing.name}": ${reason.trim()}`,
+      title: 'Worksite Change Request',
+      message: `${req.user!.fullName} requested changes for "${existing.name}".`,
       type: 'approval',
       link: '/approvals',
     });
@@ -4763,8 +4763,8 @@ apiRouter.post('/gps-attendance/check-out', requireAuth, (req: Request, res: Res
   if (activeRecord.supervisor_id) {
     createNotification({
       userId: activeRecord.supervisor_id,
-      title: 'GPS Attendance Shift Completed',
-      message: `${user.fullName} completed shift (${workingHours} hrs) at ${activeRecord.worksite_name}. Awaiting review.`,
+      title: 'Shift Completed',
+      message: `${user.fullName} completed shift (${workingHours} hrs) at ${activeRecord.worksite_name}.`,
       type: 'approval',
       link: '/attendance',
     });
@@ -5020,7 +5020,7 @@ const handleGpsAttendanceApprove = (req: Request, res: Response) => {
   createNotification({
     userId: existing.user_id,
     title: 'Attendance Approved',
-    message: `Your GPS attendance for ${existing.date} (${existing.payable_hours} hrs) has been approved.`,
+    message: `GPS attendance for ${existing.date} (${existing.payable_hours} hrs) approved.`,
     type: 'approval',
   });
 
@@ -5077,7 +5077,7 @@ const handleGpsAttendanceReject = (req: Request, res: Response) => {
   createNotification({
     userId: existing.user_id,
     title: 'Attendance Rejected',
-    message: `Your GPS attendance for ${existing.date} was rejected: ${reason}`,
+    message: `GPS attendance for ${existing.date} rejected: ${reason.trim()}`,
     type: 'rejection',
   });
 
@@ -5152,8 +5152,8 @@ apiRouter.post('/gps-attendance/:id/re-request-location', requireAuth, requireSt
   // 3. Notify labourer
   createNotification({
     userId: existing.user_id,
-    title: '⚠️ Location Re-verification Required',
-    message: `${req.user!.fullName} requested you re-verify your location within 30 minutes. Your attendance check-in is pending re-check.`,
+    title: 'Location Verification',
+    message: `${req.user!.fullName} requested GPS verification within 30 mins.`,
     type: 'approval',
     link: '/attendance',
   });
@@ -5299,8 +5299,8 @@ apiRouter.post('/verifications/request', requireAuth, requireStaffOrAdmin, (req:
     const member = db.prepare('SELECT role FROM users WHERE id = ?').get(uid) as any;
     createNotification({
       userId: uid,
-      title: 'Action Required: Attendance Verification',
-      message: `Spot verification requested by ${req.user!.fullName}. Please confirm your GPS location within 30 minutes.`,
+      title: 'Attendance Verification',
+      message: `Spot check by ${req.user!.fullName}. Confirm GPS within 30 mins.`,
       type: 'approval',
       link: member?.role === 'staff' ? '/dashboard' : '/attendance',
     });
@@ -5460,8 +5460,8 @@ apiRouter.post('/verifications/:id/respond', requireAuth, (req: Request, res: Re
   // Notify requesting admin
   createNotification({
     userId: request.requested_by_id,
-    title: `Verification Response: ${req.user!.fullName}`,
-    message: `${req.user!.fullName} responded [${verificationStatus}] (${distanceMeters}m from site).`,
+    title: `Verification Response`,
+    message: `${req.user!.fullName}: [${verificationStatus}] (${distanceMeters}m).`,
     type: 'info',
   });
 
@@ -5741,8 +5741,8 @@ apiRouter.post('/geofence-requests', requireAuth, requireStaffOrAdmin, (req: Req
 
   createNotification({
     userId: targetAdminId,
-    title: entityType === 'worksite' ? 'Worksite Change Request' : 'Geofence Location Change Request',
-    message: `${req.user!.fullName} requested changes for "${entityName}": ${reason.trim()}`,
+    title: entityType === 'worksite' ? 'Worksite Change Request' : 'Geofence Change Request',
+    message: `${req.user!.fullName} requested changes for "${entityName}".`,
     type: 'approval',
     link: '/approvals',
   });
@@ -5903,7 +5903,7 @@ apiRouter.post('/geofence-requests/:id/approve', requireAuth, requireAdmin, (req
   createNotification({
     userId: request.requested_by_id,
     title: request.entity_type === 'worksite' ? 'Worksite Change Approved' : 'Geofence Change Approved',
-    message: `Your requested changes for "${request.entity_name}" have been approved by ${req.user!.fullName}.`,
+    message: `Changes for "${request.entity_name}" approved.`,
     type: 'approval',
   });
 
@@ -5965,7 +5965,7 @@ apiRouter.post('/geofence-requests/:id/reject', requireAuth, requireAdmin, (req:
   createNotification({
     userId: request.requested_by_id,
     title: 'Geofence Change Rejected',
-    message: `Your site location change request for "${request.entity_name}" was rejected: ${reason || 'No reason specified'}`,
+    message: `Change request for "${request.entity_name}" rejected: ${reason || 'Not approved'}`,
     type: 'rejection',
   });
 

@@ -101,46 +101,46 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ showToast, showSuccess, showError, showInfo, dismissToast }}>
       {children}
 
-      {/* Floating Modern Toast Stack Container */}
-      <div className="fixed top-10 sm:top-5 left-1/2 -translate-x-1/2 z-[9999] w-[92%] sm:w-auto sm:min-w-[360px] sm:max-w-md pointer-events-none space-y-2 pt-1">
+      {/* Floating Modern Toast Stack Container matching #EEE5D4 / #FAF7F0 Theme */}
+      <div className="fixed top-12 sm:top-5 left-1/2 -translate-x-1/2 z-[9999] w-[92%] sm:w-auto sm:min-w-[360px] sm:max-w-md pointer-events-none space-y-2 pt-1">
         {toasts.map((t) => {
-          let bgClass = 'bg-white border-slate-200 text-slate-800';
-          let icon = <Info className="w-5 h-5 text-sky-600 shrink-0" />;
-          let barClass = 'bg-sky-600';
+          let icon = <Info className="w-5 h-5 text-[#2D6043] shrink-0" />;
+          let barClass = 'bg-[#2D6043]';
+          let borderAccent = 'border-[#E8DFD0]';
 
           if (t.type === 'success') {
-            bgClass = 'bg-white border-emerald-500 text-emerald-950';
-            icon = <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />;
-            barClass = 'bg-emerald-600';
+            icon = <CheckCircle2 className="w-5 h-5 text-[#2D6043] shrink-0" />;
+            barClass = 'bg-gradient-to-b from-[#2D6043] to-[#184F34]';
+            borderAccent = 'border-[#C8DACF]';
           } else if (t.type === 'error') {
-            bgClass = 'bg-white border-rose-500 text-rose-950';
-            icon = <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />;
+            icon = <AlertCircle className="w-5 h-5 text-rose-700 shrink-0" />;
             barClass = 'bg-rose-600';
+            borderAccent = 'border-rose-200';
           } else if (t.type === 'warning') {
-            bgClass = 'bg-white border-amber-500 text-amber-950';
-            icon = <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />;
+            icon = <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0" />;
             barClass = 'bg-amber-600';
+            borderAccent = 'border-amber-200';
           }
 
           return (
             <div
               key={t.id}
-              className={`pointer-events-auto rounded-2xl p-3.5 sm:p-4 shadow-xl border flex items-start justify-between gap-3 animate-fade-in transition-all duration-300 relative overflow-hidden backdrop-blur-md ${bgClass}`}
+              className={`pointer-events-auto rounded-2xl p-3.5 sm:p-4 shadow-xl border flex items-start justify-between gap-3 animate-fade-in transition-all duration-300 relative overflow-hidden backdrop-blur-md bg-[#FAF7F0] ${borderAccent}`}
               style={{
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                boxShadow: '0 12px 28px -5px rgba(11, 53, 34, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.06)',
               }}
             >
               <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${barClass}`} />
 
-              <div className="flex items-start space-x-3 pl-1">
+              <div className="flex items-start space-x-3 pl-1.5">
                 <div className="mt-0.5">{icon}</div>
                 <div className="space-y-0.5">
                   {t.title && (
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-[#0B3522]">
                       {t.title}
                     </h4>
                   )}
-                  <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                  <p className="text-xs text-[#405446] leading-snug font-medium">
                     {t.message}
                   </p>
                 </div>
@@ -149,7 +149,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={() => dismissToast(t.id)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
+                className="p-1 rounded-xl text-[#6B8072] hover:text-[#0B3522] hover:bg-[#E8DFD0]/60 transition-colors shrink-0 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
