@@ -9,7 +9,6 @@ interface TopWaveHeaderProps {
   showBack?: boolean;
   onBack?: () => void;
   className?: string;
-  isScrolled?: boolean;
 }
 
 export function TopWaveHeader({
@@ -20,12 +19,10 @@ export function TopWaveHeader({
   showBack = false,
   onBack,
   className = '',
-  isScrolled = false,
 }: TopWaveHeaderProps) {
   return (
     <div
-      className={`relative overflow-hidden bg-gradient-to-b from-[#082417] via-[#0D3823] to-[#14472F] select-none transition-all duration-300 ease-in-out ${className}`}
-      style={{ paddingTop: 'max(8px, env(safe-area-inset-top))' }}
+      className={`relative overflow-hidden bg-gradient-to-b from-[#082417] via-[#0D3823] to-[#14472F] select-none ${className}`}
     >
       {/* Background flowing silk wave ribbons */}
       <svg
@@ -70,20 +67,14 @@ export function TopWaveHeader({
         </defs>
       </svg>
 
-      {/* Content Bar */}
-      <div
-        className={`relative z-10 px-4 sm:px-6 flex items-center justify-between transition-all duration-300 ease-in-out ${
-          isScrolled ? (showBack ? 'py-1.5' : 'py-0') : 'pt-2.5 pb-2.5'
-        }`}
-      >
+      {/* Content Bar - Tight, compact top padding so logo sits directly at top */}
+      <div className="relative z-10 px-4 pt-2 pb-1.5 flex items-center justify-between">
         <div className="flex items-center space-x-2.5 min-w-0">
           {showBack && (
             <button
               type="button"
               onClick={onBack}
-              className={`rounded-2xl bg-white/15 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center shadow-xs border border-white/20 transition-all cursor-pointer shrink-0 ${
-                isScrolled ? 'w-8 h-8 mr-1' : 'w-9 h-9 mr-1'
-              }`}
+              className="w-9 h-9 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center shadow-xs border border-white/20 transition-all cursor-pointer shrink-0 mr-1"
               aria-label="Go back"
               title="Go back"
             >
@@ -91,28 +82,19 @@ export function TopWaveHeader({
             </button>
           )}
 
-          {/* Logo & Branding - Hides while scrolling, reappears when scrolled back to top */}
-          <div
-            className={`flex items-center transition-all duration-300 ease-in-out origin-left ${
-              isScrolled
-                ? 'opacity-0 scale-95 -translate-y-2 pointer-events-none max-h-0 overflow-hidden'
-                : 'opacity-100 scale-100 translate-y-0 max-h-16 overflow-visible'
-            }`}
-          >
-            <div className="w-11 h-11 rounded-2xl bg-white p-1.5 shadow-md flex items-center justify-center shrink-0 border border-white/30 mr-2.5">
-              <img
-                src="/assets/aistudio/solar_designs_clean_logo_bf464b07.png"
-                alt="Logo"
-                className="w-full h-full object-contain pointer-events-none"
-              />
+          <div className="w-10 h-10 rounded-2xl bg-white p-1.5 shadow-md flex items-center justify-center shrink-0 border border-white/30">
+            <img
+              src="/assets/aistudio/solar_designs_clean_logo_bf464b07.png"
+              alt="Logo"
+              className="w-full h-full object-contain pointer-events-none"
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="font-bold text-sm sm:text-base text-white tracking-tight leading-tight truncate">
+              {title}
             </div>
-            <div className="min-w-0">
-              <div className="font-bold text-sm sm:text-base text-white tracking-tight leading-tight truncate">
-                {title}
-              </div>
-              <div className="text-[11px] sm:text-xs text-emerald-200/90 font-medium leading-tight mt-0.5 truncate">
-                {subtitle}
-              </div>
+            <div className="text-[10px] sm:text-xs text-emerald-200/90 font-medium leading-tight mt-0.5 truncate">
+              {subtitle}
             </div>
           </div>
         </div>
@@ -120,7 +102,7 @@ export function TopWaveHeader({
         {showClose && (
           <button
             onClick={onClose}
-            className="w-8.5 h-8.5 rounded-full bg-white text-[#0B3522] flex items-center justify-center shadow-md font-bold cursor-pointer hover:bg-emerald-50 active:scale-95 transition-all shrink-0"
+            className="w-8 h-8 rounded-full bg-white text-[#0B3522] flex items-center justify-center shadow-md font-bold cursor-pointer hover:bg-emerald-50 active:scale-95 transition-all shrink-0"
             aria-label="Close menu"
           >
             <X className="w-4 h-4 stroke-[2.5]" />
@@ -129,15 +111,11 @@ export function TopWaveHeader({
       </div>
 
       {/* Organic Curved Wave Transition to #EEE5D4 */}
-      <div
-        className={`relative w-full overflow-hidden leading-none z-10 -mb-[1px] transition-all duration-300 ease-in-out ${
-          isScrolled ? 'h-3 sm:h-5' : 'h-6 sm:h-9'
-        }`}
-      >
+      <div className="relative w-full overflow-hidden leading-none z-10 -mb-[1px]">
         <svg
           viewBox="0 0 1200 64"
           preserveAspectRatio="none"
-          className="w-full h-full block text-[#EEE5D4]"
+          className="w-full h-5 sm:h-7 block text-[#EEE5D4]"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
