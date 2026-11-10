@@ -31,6 +31,42 @@ function ERPContent() {
   const [navParams, setNavParams] = useState<any>({});
   const tabHistoryRef = useRef<NavTab[]>(['dashboard']);
 
+  // Scroll monitor for iPhone-style duo blur fades (fade in on scroll, fade out at edges)
+  const [showTopBlur, setShowTopBlur] = useState(false);
+  const [showBottomBlur, setShowBottomBlur] = useState(true);
+
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollY = window.scrollY;
+          const windowHeight = window.innerHeight;
+          const docHeight = document.documentElement.scrollHeight;
+
+          // Top blur: fades in when scrolled down > 10px, fades out at the very top
+          setShowTopBlur(scrollY > 10);
+
+          // Bottom blur: fades in while scrolling, fades out when reaching the bottom (within 25px)
+          const isAtBottom = scrollY + windowHeight >= docHeight - 25;
+          setShowBottomBlur(!isAtBottom);
+
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll, { passive: true });
+    handleScroll();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, [currentTab]);
+
   const handleNavigate = (tab: NavTab, params?: any, pushHistory = true) => {
     if (params) setNavParams(params);
     if (tab === currentTab) return;
@@ -155,7 +191,7 @@ function ERPContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#EEE5D4] flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[#EEE5D4] flex flex-col md:flex-row relative">
       <Sidebar currentTab={currentTab} onTabChange={(tab) => handleNavigate(tab, undefined, true)} />
 
       {/* Mobile-only wavy top header bar with logo & back button matching Image 1 */}
@@ -167,6 +203,34 @@ function ERPContent() {
           onBack={handleBack}
         />
       </header>
+
+      {/* Top Duo Blur Fade (iPhone-style feathered blur fade below top header: fades in on scroll, fades out at top) */}
+      <div
+        className={`md:hidden fixed left-0 right-0 z-20 pointer-events-none transition-opacity duration-300 ease-out top-[58px] h-8 ${
+          showTopBlur ? 'opacity-100' : 'opacity-0'
+        }`}
+        style={{
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          background: 'linear-gradient(to bottom, rgba(238, 229, 212, 0.92) 0%, rgba(238, 229, 212, 0.35) 65%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, black 25%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 25%, transparent 100%)',
+        }}
+      />
+
+      {/* Bottom Duo Blur Fade (iPhone-style feathered blur fade above bottom nav: fades in on scroll, fades out at bottom) */}
+      <div
+        className={`md:hidden fixed left-0 right-0 bottom-0 z-35 pointer-events-none transition-opacity duration-300 ease-out h-24 sm:h-28 ${
+          showBottomBlur ? 'opacity-100' : 'opacity-0'
+        }`}
+        style={{
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          background: 'linear-gradient(to top, rgba(238, 229, 212, 0.98) 0%, rgba(238, 229, 212, 0.7) 45%, transparent 100%)',
+          maskImage: 'linear-gradient(to top, black 40%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to top, black 40%, transparent 100%)',
+        }}
+      />
 
       {/* Main content container with top padding matching header height */}
       <main className="flex-1 min-w-0 p-3 sm:p-6 lg:p-8 pt-[74px] md:pt-4 pb-28 md:pb-12">
