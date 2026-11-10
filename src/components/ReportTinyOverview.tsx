@@ -59,11 +59,6 @@ export function ReportTinyOverview({
         }`}
       >
         <div className="min-w-0">
-          {topLabel && (
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[#526659]">
-              {topLabel}
-            </span>
-          )}
           <div className="font-mono text-2xl sm:text-3xl font-black text-[#0B3522] tracking-tight">
             {topValue}
           </div>
@@ -148,11 +143,6 @@ export function ReportTinyOverview({
         }`}
       >
         <div className="min-w-0">
-          {bottomLabel && (
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[#526659]">
-              {bottomLabel}
-            </span>
-          )}
           <div
             style={{ color: bottomColor }}
             className="font-mono text-2xl sm:text-3xl font-black tracking-tight"

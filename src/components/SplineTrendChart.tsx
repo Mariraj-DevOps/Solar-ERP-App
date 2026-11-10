@@ -129,16 +129,9 @@ export function SplineTrendChart({
 
   return (
     <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] shadow-xs p-5 relative overflow-hidden card-wave-bg">
-      {/* Title & Subtitle */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2">
-        <div>
-          <h3 className="font-bold text-sm sm:text-base text-[#0B3522] tracking-tight">{title}</h3>
-          {subtitle && <p className="text-[11px] text-[#526659] mt-0.5">{subtitle}</p>}
-        </div>
-        <div className="text-[11px] text-[#526659] font-medium flex items-center space-x-2">
-          <span className="w-2 h-2 rounded-full bg-[#2D6043]" />
-          <span>Real Database Reports</span>
-        </div>
+      {/* Title */}
+      <div className="flex items-center justify-between pb-2">
+        <h3 className="font-bold text-sm sm:text-base text-[#0B3522] tracking-tight">{title}</h3>
       </div>
 
       {/* Main SVG Curve Area */}

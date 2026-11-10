@@ -597,7 +597,7 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500">
-                    Assigned Site: <strong className="text-slate-700">{assignedWorksite?.name || user?.assignedLocation || 'General Site'}</strong> ({allowedRadius}m boundary)
+                    Assigned Site: <strong className="text-slate-700">{assignedWorksite?.name || user?.assignedLocation || 'General Site'}</strong>
                   </p>
                 </div>
               </div>
@@ -665,7 +665,7 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
                 </p>
                 {staffGpsPosition ? (
                   <p className="text-[11px] font-mono opacity-85">
-                    {distanceM !== null ? `${distanceM}m to center` : ''} (±{Math.round(staffGpsPosition.accuracy || 10)}m accuracy)
+                    {distanceM !== null ? `${distanceM}m to center` : ''}
                   </p>
                 ) : (
                   <p className="text-[11px] opacity-75">Turn on GPS to verify position</p>
@@ -734,7 +734,6 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
           <div className="text-xl sm:text-2xl font-black font-mono text-[#0B3522] mt-2.5 tracking-tight">
             {weekBounds.displayRange}
           </div>
-          <div className="text-xs text-[#5C7263] mt-1 font-medium">Saturday through Friday cycle</div>
         </div>
 
         <div className="bg-[#FAF7F0] p-4 sm:p-5 rounded-3xl border border-[#E8DFD0] shadow-xs relative overflow-hidden card-wave-bg">
@@ -744,9 +743,6 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
           </div>
           <div className="text-2xl sm:text-3xl font-black font-mono text-[#0B3522] mt-2.5 tracking-tight">
             {formatINR(grandTotals.finalPayable)}
-          </div>
-          <div className="text-xs text-[#5C7263] mt-1 font-medium">
-            Labour: {formatINR(grandTotals.labour)} | Charges: {formatINR(grandTotals.additionalCharges)}
           </div>
         </div>
 
@@ -758,7 +754,6 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
           <div className="text-2xl sm:text-3xl font-black font-mono text-[#0B3522] mt-2.5 tracking-tight">
             {formatINR(grandTotals.paid)}
           </div>
-          <div className="text-xs text-[#5C7263] mt-1 font-medium">Disbursed with voucher refs</div>
         </div>
 
         <div className="bg-[#FAF7F0] p-4 sm:p-5 rounded-3xl border border-[#E8DFD0] shadow-xs relative overflow-hidden card-wave-bg">
@@ -769,7 +764,6 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
           <div className="text-2xl sm:text-3xl font-black font-mono text-amber-800 mt-2.5 tracking-tight">
             {formatINR(grandTotals.outstanding)}
           </div>
-          <div className="text-xs text-amber-900/80 mt-1 font-medium">Pending payment disbursement</div>
         </div>
       </div>
 
@@ -788,7 +782,6 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-black text-sm text-[#0B3522]">Day-by-Day Attendance &amp; Amount Breakdown</h2>
-            <p className="text-xs text-[#526659] mt-0.5">Reporting week {weekBounds.displayRange}</p>
           </div>
           <button
             onClick={() => onNavigate && onNavigate('weekly-reports', { weekStart: currentWeekStart })}

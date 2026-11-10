@@ -248,8 +248,8 @@ export function MasterAdminAnalytics({
     if (metric === 'attendance') {
       currentSeriesLabel = `This Week (${curRange})`;
       prevSeriesLabel = `Last Week (${prevRange})`;
-      chartTitle = 'Daily Attendance Turnout: This Week vs Last Week';
-      chartSubtitle = `Comparison of daily worker turnout across the Saturday–Friday cycle`;
+      chartTitle = 'Attendance Turnout';
+      chartSubtitle = '';
       chartUnit = 'Workers';
       chartFormatter = (val) => `${val} Workers`;
 
@@ -263,8 +263,8 @@ export function MasterAdminAnalytics({
     } else {
       currentSeriesLabel = `This Week Expenses (${curRange})`;
       prevSeriesLabel = `Last Week Expenses (${prevRange})`;
-      chartTitle = 'Daily Site Expenses: This Week vs Last Week';
-      chartSubtitle = `Daily total expenses (Labour + Overtime + Additional Charges) across Saturday–Friday cycle`;
+      chartTitle = 'Expenses & Payments';
+      chartSubtitle = '';
       chartUnit = '₹';
       chartFormatter = (val) => formatINR(val);
 
@@ -284,8 +284,8 @@ export function MasterAdminAnalytics({
     if (metric === 'attendance') {
       currentSeriesLabel = `${curMName} ${currentYear}`;
       prevSeriesLabel = `${prevMName} ${prevYear}`;
-      chartTitle = `Monthly Attendance Turnout: ${curMName} vs ${prevMName}`;
-      chartSubtitle = `Weekly turnout distribution across the calendar months`;
+      chartTitle = 'Monthly Attendance Turnout';
+      chartSubtitle = '';
       chartUnit = 'Workers';
       chartFormatter = (val) => `${val} Workers`;
 
@@ -299,8 +299,8 @@ export function MasterAdminAnalytics({
     } else {
       currentSeriesLabel = `${curMName} ${currentYear} Expenses`;
       prevSeriesLabel = `${prevMName} ${prevYear} Expenses`;
-      chartTitle = `Monthly Financial Expenses: ${curMName} vs ${prevMName}`;
-      chartSubtitle = `Consolidated monthly site expenditures (Labour + Overtime + Charges)`;
+      chartTitle = 'Monthly Expenses & Payments';
+      chartSubtitle = '';
       chartUnit = '₹';
       chartFormatter = (val) => formatINR(val);
 
@@ -343,11 +343,6 @@ export function MasterAdminAnalytics({
                 Master Admin
               </span>
             </div>
-            <p className="text-[11px] text-[#526659] mt-0.5">
-              {period === 'weekly'
-                ? `Reporting Week: ${weekBounds.displayRange} (vs ${prevWeekBounds.displayRange})`
-                : `Calendar Month: ${fullMonthNames[currentMonth - 1]} ${currentYear} (vs ${fullMonthNames[prevMonth - 1]})`}
-            </p>
           </div>
         </div>
 
@@ -418,11 +413,11 @@ export function MasterAdminAnalytics({
         {metric === 'attendance' ? (
           <>
             {/* KPI 1: Worker Turnout */}
-            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-center card-wave-bg">
               <div className="text-xs font-bold text-[#526659]">
                 {period === 'weekly' ? 'Total Worker Turnout' : 'Monthly Worker-Days'}
               </div>
-              <div className="my-2">
+              <div className="my-1.5">
                 <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A] flex items-center justify-center gap-1">
                   <span>{curTotalWorkers}</span>
                   <span className={`text-base font-bold ${isWorkerIncrease ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -433,17 +428,14 @@ export function MasterAdminAnalytics({
                   Previous: {prevTotalWorkers} Workers
                 </div>
               </div>
-              <div className="text-[10px] text-[#2D6043] font-bold uppercase tracking-wider">
-                Approved Muster Rolls
-              </div>
             </div>
 
             {/* KPI 2: Daily Average Turnout */}
-            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-center card-wave-bg">
               <div className="text-xs font-bold text-[#526659]">
                 Daily Average Turnout
               </div>
-              <div className="my-2">
+              <div className="my-1.5">
                 <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
                   {curAvgDailyWorkers} <span className="text-sm font-sans font-normal text-[#526659]">/ day</span>
                 </div>
@@ -451,17 +443,14 @@ export function MasterAdminAnalytics({
                   Previous: {prevAvgDailyWorkers} / day
                 </div>
               </div>
-              <div className="text-[10px] text-[#2D6043] font-bold uppercase tracking-wider">
-                Peak: {curPeakWorkers} Workers
-              </div>
             </div>
 
             {/* KPI 3: Total Approved Labour Wages */}
-            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-center card-wave-bg">
               <div className="text-xs font-bold text-[#526659]">
                 Approved Labour Wages
               </div>
-              <div className="my-2">
+              <div className="my-1.5">
                 <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
                   {formatCompactINR(curTotalLabour)}
                 </div>
@@ -469,17 +458,14 @@ export function MasterAdminAnalytics({
                   Previous: {formatCompactINR(prevTotalLabour)}
                 </div>
               </div>
-              <div className="text-[10px] text-[#2D6043] font-bold uppercase tracking-wider">
-                Base Wage Obligation
-              </div>
             </div>
 
             {/* KPI 4: Turnout Consistency */}
-            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-center card-wave-bg">
               <div className="text-xs font-bold text-[#526659]">
                 Turnout Consistency
               </div>
-              <div className="my-2">
+              <div className="my-1.5">
                 <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
                   {Math.round((curActiveDays / 7) * 100)}%
                 </div>
@@ -487,19 +473,16 @@ export function MasterAdminAnalytics({
                   {curActiveDays} of 7 Active Days
                 </div>
               </div>
-              <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
-                Muster Reliability
-              </div>
             </div>
           </>
         ) : (
           <>
             {/* KPI 1: Total Cycle Expenses */}
-            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-center card-wave-bg">
               <div className="text-xs font-bold text-[#526659]">
                 {period === 'weekly' ? 'Total Cycle Expenses' : 'Monthly Expenditure'}
               </div>
-              <div className="my-2">
+              <div className="my-1.5">
                 <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A] flex items-center justify-center gap-1">
                   <span>{formatCompactINR(curTotalExpenses)}</span>
                   <span className={`text-base font-bold ${isExpenseIncrease ? 'text-rose-600' : 'text-emerald-600'}`}>
@@ -510,17 +493,14 @@ export function MasterAdminAnalytics({
                   Previous: {formatCompactINR(prevTotalExpenses)}
                 </div>
               </div>
-              <div className="text-[10px] text-[#2D6043] font-bold uppercase tracking-wider">
-                Labour + Overtime + Charges
-              </div>
             </div>
 
             {/* KPI 2: Disbursed (Paid) */}
-            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-center card-wave-bg">
               <div className="text-xs font-bold text-[#526659]">
                 Settled (Paid Amount)
               </div>
-              <div className="my-2">
+              <div className="my-1.5">
                 <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
                   {formatCompactINR(curPaid)}
                 </div>
@@ -528,17 +508,14 @@ export function MasterAdminAnalytics({
                   Previous: {formatCompactINR(prevPaid)}
                 </div>
               </div>
-              <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
-                Verified Voucher Payouts
-              </div>
             </div>
 
             {/* KPI 3: Net Payable */}
-            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-center card-wave-bg">
               <div className="text-xs font-bold text-[#526659]">
                 Approved Net Payable
               </div>
-              <div className="my-2">
+              <div className="my-1.5">
                 <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
                   {formatCompactINR(curPayable)}
                 </div>
@@ -546,26 +523,20 @@ export function MasterAdminAnalytics({
                   Due: {formatCompactINR(curOutstanding)}
                 </div>
               </div>
-              <div className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">
-                Total Obligation
-              </div>
             </div>
 
             {/* KPI 4: Settlement Rate */}
-            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-between card-wave-bg">
+            <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] p-4 shadow-xs text-center flex flex-col justify-center card-wave-bg">
               <div className="text-xs font-bold text-[#526659]">
                 Settlement Rate
               </div>
-              <div className="my-2">
+              <div className="my-1.5">
                 <div className="font-mono text-2xl sm:text-3xl font-black text-[#1E3A8A]">
                   {curSettlementPct}%
                 </div>
                 <div className="text-[11px] text-[#7D9384] font-medium mt-0.5">
                   {formatCompactINR(curPaid)} / {formatCompactINR(curPayable)}
                 </div>
-              </div>
-              <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
-                Payout Ratio
               </div>
             </div>
           </>
@@ -590,17 +561,15 @@ export function MasterAdminAnalytics({
         </div>
 
         {/* Right Column (4 cols): Tiny Overview matching Image 2 at a small place */}
-        <div className="lg:col-span-4 flex flex-col justify-between">
+        <div className="lg:col-span-4 flex flex-col justify-start">
           {metric === 'attendance' ? (
             <ReportTinyOverview
-              topLabel="Total Worker Turnout"
               topValue={`${curTotalWorkers} Workers`}
               topSubtitle={`${isWorkerIncrease ? '+' : '-'}${Math.abs(workerChangePct)}% vs Prev (${prevTotalWorkers} → ${curTotalWorkers})`}
               topScore={turnoutScore}
-              bannerText="Attendance Turnout Overview"
-              bottomLabel="Labour Wage Subtotal"
+              bannerText="Attendance Overview"
               bottomValue={formatCompactINR(curTotalLabour)}
-              bottomSubtitle={`${curActiveDays} of 7 Active Days (${curAvgDailyWorkers} workers/day)`}
+              bottomSubtitle={`${curActiveDays} of 7 Active Days`}
               bottomPercent={Math.round((curActiveDays / 7) * 100)}
               bottomColor="#2D6043"
               isPositiveTrend={isWorkerIncrease}
@@ -609,12 +578,10 @@ export function MasterAdminAnalytics({
             />
           ) : (
             <ReportTinyOverview
-              topLabel="Total Site Expenses"
               topValue={formatCompactINR(curTotalExpenses)}
               topSubtitle={`${isExpenseIncrease ? '+' : '-'}${Math.abs(expenseChangePct)}% vs Prev (${formatCompactINR(prevTotalExpenses)} → ${formatCompactINR(curTotalExpenses)})`}
               topScore={expenseScore}
-              bannerText="Payment Settlement Overview"
-              bottomLabel="Disbursed Amount"
+              bannerText="Expenses Overview"
               bottomValue={formatCompactINR(curPaid)}
               bottomSubtitle={`Due: ${formatCompactINR(curOutstanding)} (${curSettlementPct}% Settled)`}
               bottomPercent={curSettlementPct}
@@ -624,33 +591,6 @@ export function MasterAdminAnalytics({
               onViewBottom={() => onNavigate && onNavigate('payments')}
             />
           )}
-
-          {/* Quick Drill-down Action Footer */}
-          <div className="bg-[#FAF7F0] rounded-2xl border border-[#E8DFD0] p-3 mt-3 shadow-xs flex items-center justify-between text-xs">
-            <span className="text-[11px] text-[#526659]">Quick navigation:</span>
-            <div className="flex items-center space-x-2 font-bold text-[#0B3522]">
-              <button
-                onClick={() => onNavigate && onNavigate('attendance')}
-                className="hover:text-[#184F34] hover:underline cursor-pointer"
-              >
-                Muster Roll
-              </button>
-              <span className="text-[#DDD2C0]">•</span>
-              <button
-                onClick={() => onNavigate && onNavigate('weekly-reports', { weekStart: currentWeekStart })}
-                className="hover:text-[#184F34] hover:underline cursor-pointer"
-              >
-                Weekly Report
-              </button>
-              <span className="text-[#DDD2C0]">•</span>
-              <button
-                onClick={() => onNavigate && onNavigate('payments')}
-                className="hover:text-[#184F34] hover:underline cursor-pointer"
-              >
-                Payment Tracker
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
