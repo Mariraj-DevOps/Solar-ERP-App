@@ -381,28 +381,28 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Top Banner & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#696969]/20 pb-4">
+      {/* Top Banner & Header matching Image 1 */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E8DFD0] pb-4">
         <div>
-          <div className="flex items-center space-x-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-[#014025] tracking-tight">
-              {isMasterAdmin ? 'Company Executive Dashboard' : isSecondaryAdmin ? 'Manager Operations Dashboard' : 'Staff Operations Dashboard'}
+          <div className="flex items-center space-x-2.5 flex-wrap gap-1">
+            <h1 className="text-2xl sm:text-3xl font-black text-[#0B3522] tracking-tight">
+              {isMasterAdmin ? 'Company Executive Dashboard' : isSecondaryAdmin ? 'Manager Operations Dashboard' : 'Company Executive Dashboard'}
             </h1>
-            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-[#456B5A]/20 text-[#014025]">
+            <span className="text-xs uppercase font-bold px-2.5 py-0.5 rounded-full bg-[#D5E3DB] text-[#1E4D38]">
               {user?.role === 'master_admin' ? 'Master Admin' : user?.role === 'secondary_admin' ? 'Manager' : 'Staff'}
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-[#696969] mt-0.5">
-            Saturday–Friday reporting cycle analytics • Today: <span className="text-[#014025] font-semibold font-mono">{formatDateDisplay(todayKolkata)}</span>
+          <p className="text-xs sm:text-sm text-[#506657] mt-1 font-medium">
+            Saturday–Friday reporting cycle analytics • Today: <span className="text-[#0B3522] font-bold font-mono">{formatDateDisplay(todayKolkata)}</span>
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2.5">
           <WeekNavigator currentWeekStart={currentWeekStart} onWeekChange={setCurrentWeekStart} />
           <button
             onClick={loadDashboardData}
             disabled={isLoading}
-            className="p-2 rounded-lg border border-[#696969]/20 text-[#014025] hover:bg-[#696969]/10"
+            className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#FAF7F0] border border-[#E8DFD0] flex items-center justify-center text-[#0B3522] shadow-xs hover:bg-white transition-colors cursor-pointer shrink-0"
             title="Refresh analytics"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -411,33 +411,31 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center space-x-2">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 flex items-center space-x-2">
           <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Action Shortcuts Bar */}
-      <div className="bg-white p-3 sm:p-4 rounded-xl border border-[#456B5A]/20 shadow-xs flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-semibold text-[#3B5E4F] mr-1 hidden sm:inline">Shortcuts:</span>
-
+      {/* Action Shortcuts Bar matching Image 1 */}
+      <div className="bg-[#FAF7F0] p-3.5 sm:p-4 rounded-3xl border border-[#E8DFD0] shadow-xs flex flex-wrap items-center gap-2.5 text-xs">
         <button
           onClick={() => onNavigate && onNavigate('attendance', { date: todayKolkata })}
-          className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#014025] hover:bg-[#014025]/90 text-white rounded-lg font-semibold shadow-xs transition-colors"
+          className="flex items-center space-x-1.5 px-4 py-2.5 bg-[#0B3522] hover:bg-[#072417] text-white rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>Add Attendance</span>
         </button>
 
         {isAdminAny && (
           <button
             onClick={() => onNavigate && onNavigate('approvals')}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#456B5A] hover:bg-[#3B5E4F] text-white rounded-lg font-semibold shadow-xs transition-colors relative"
+            className="flex items-center space-x-1.5 px-4 py-2.5 bg-[#DCEAE2] hover:bg-[#CFE2D7] text-[#0B3522] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer relative"
           >
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="w-4 h-4 text-[#0B3522]" />
             <span>Review Queue</span>
             {pendingApprovals.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 bg-amber-400 text-[#014025] font-bold rounded-full text-[10px]">
+              <span className="ml-1 px-1.5 py-0.2 bg-[#0B3522] text-white font-bold rounded-full text-[10px]">
                 {pendingApprovals.length}
               </span>
             )}
@@ -446,25 +444,25 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
 
         <button
           onClick={() => onNavigate && onNavigate('weekly-reports', { weekStart: currentWeekStart })}
-          className="flex items-center space-x-1.5 px-3 py-1.5 border border-[#456B5A]/30 text-[#3B5E4F] hover:bg-[#456B5A]/10 rounded-lg font-medium transition-colors"
+          className="flex items-center space-x-1.5 px-4 py-2.5 bg-white/80 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
         >
           <span>Weekly Report</span>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-4 h-4" />
         </button>
 
         <button
           onClick={() => onNavigate && onNavigate('payments', { weekStart: currentWeekStart })}
-          className="flex items-center space-x-1.5 px-3 py-1.5 border border-[#456B5A]/30 text-[#3B5E4F] hover:bg-[#456B5A]/10 rounded-lg font-medium transition-colors"
+          className="flex items-center space-x-1.5 px-4 py-2.5 bg-white/80 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
         >
           <span>Payment Status</span>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-4 h-4" />
         </button>
 
         <button
           onClick={() => onNavigate && onNavigate('attachments')}
-          className="flex items-center space-x-1.5 px-3 py-1.5 border border-[#456B5A]/30 text-[#3B5E4F] hover:bg-[#456B5A]/10 rounded-lg font-medium transition-colors"
+          className="flex items-center space-x-1.5 px-4 py-2.5 bg-white/80 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
         >
-          <Paperclip className="w-3.5 h-3.5 text-[#456B5A]" />
+          <Paperclip className="w-4 h-4 text-[#0B3522]" />
           <span>Attachments</span>
         </button>
       </div>
@@ -655,57 +653,65 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
         );
       })()}
 
-      {/* KPI Cards: Current Week Financial Snapshot */}
+      {/* KPI Cards: Current Week Financial Snapshot matching Image 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-[#696969]/20 shadow-xs">
+        <div className="bg-[#FAF7F0] p-4 sm:p-5 rounded-3xl border border-[#E8DFD0] shadow-xs relative overflow-hidden card-wave-bg">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-[#696969] font-medium">Reporting Week</span>
-            <CalendarRange className="w-4 h-4 text-[#456B5A]" />
+            <span className="text-xs font-bold text-[#4B6152]">Reporting Week</span>
+            <CalendarRange className="w-5 h-5 text-[#0B3522]" />
           </div>
-          <div className="text-sm font-bold font-mono text-[#014025] mt-2">{weekBounds.displayRange}</div>
-          <div className="text-[11px] text-[#696969] mt-1">Saturday through Friday cycle</div>
+          <div className="text-xl sm:text-2xl font-black font-mono text-[#0B3522] mt-2.5 tracking-tight">
+            {weekBounds.displayRange}
+          </div>
+          <div className="text-xs text-[#5C7263] mt-1 font-medium">Saturday through Friday cycle</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-[#696969]/20 shadow-xs">
+        <div className="bg-[#FAF7F0] p-4 sm:p-5 rounded-3xl border border-[#E8DFD0] shadow-xs relative overflow-hidden card-wave-bg">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-[#696969] font-medium">Approved Payable</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-bold text-[#4B6152]">Approved Payable</span>
+            <CheckCircle2 className="w-5 h-5 text-[#0B3522]" />
           </div>
-          <div className="text-2xl font-bold font-mono text-[#014025] mt-1">{formatINR(grandTotals.finalPayable)}</div>
-          <div className="text-[11px] text-[#696969] mt-1">
+          <div className="text-2xl sm:text-3xl font-black font-mono text-[#0B3522] mt-2.5 tracking-tight">
+            {formatINR(grandTotals.finalPayable)}
+          </div>
+          <div className="text-xs text-[#5C7263] mt-1 font-medium">
             Labour: {formatINR(grandTotals.labour)} | Charges: {formatINR(grandTotals.additionalCharges)}
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-[#696969]/20 shadow-xs">
+        <div className="bg-[#FAF7F0] p-4 sm:p-5 rounded-3xl border border-[#E8DFD0] shadow-xs relative overflow-hidden card-wave-bg">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-[#696969] font-medium">Week Settled (Paid)</span>
-            <ReceiptIndianRupee className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-bold text-[#4B6152]">Week Settled (Paid)</span>
+            <ReceiptIndianRupee className="w-5 h-5 text-[#0B3522]" />
           </div>
-          <div className="text-2xl font-bold font-mono text-emerald-700 mt-1">{formatINR(grandTotals.paid)}</div>
-          <div className="text-[11px] text-emerald-600 mt-1">Disbursed with voucher refs</div>
+          <div className="text-2xl sm:text-3xl font-black font-mono text-[#0B3522] mt-2.5 tracking-tight">
+            {formatINR(grandTotals.paid)}
+          </div>
+          <div className="text-xs text-[#5C7263] mt-1 font-medium">Disbursed with voucher refs</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-[#696969]/20 shadow-xs">
+        <div className="bg-[#FAF7F0] p-4 sm:p-5 rounded-3xl border border-[#E8DFD0] shadow-xs relative overflow-hidden card-wave-bg">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-[#696969] font-medium">Current Week Outstanding</span>
-            <Clock className="w-4 h-4 text-amber-600" />
+            <span className="text-xs font-bold text-[#4B6152]">Current Week Outstanding</span>
+            <Clock className="w-5 h-5 text-amber-700" />
           </div>
-          <div className="text-2xl font-bold font-mono text-amber-600 mt-1">{formatINR(grandTotals.outstanding)}</div>
-          <div className="text-[11px] text-amber-700 mt-1">Pending payment disbursement</div>
+          <div className="text-2xl sm:text-3xl font-black font-mono text-amber-800 mt-2.5 tracking-tight">
+            {formatINR(grandTotals.outstanding)}
+          </div>
+          <div className="text-xs text-amber-900/80 mt-1 font-medium">Pending payment disbursement</div>
         </div>
       </div>
 
       {/* Day by Day Payment & Worker Summary for the Week */}
-      <div className="bg-white rounded-xl border border-[#696969]/20 shadow-xs p-5 space-y-4">
+      <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] shadow-xs p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-bold text-sm text-[#014025]">Day-by-Day Attendance &amp; Amount Breakdown</h2>
-            <p className="text-xs text-[#696969]">Saturday to Friday distribution for reporting week {weekBounds.displayRange}</p>
+            <h2 className="font-black text-sm text-[#0B3522]">Day-by-Day Attendance &amp; Amount Breakdown</h2>
+            <p className="text-xs text-[#526659] mt-0.5">Saturday to Friday distribution for reporting week {weekBounds.displayRange}</p>
           </div>
           <button
             onClick={() => onNavigate && onNavigate('weekly-reports', { weekStart: currentWeekStart })}
-            className="text-xs text-[#456B5A] hover:text-[#014025] font-semibold flex items-center space-x-1"
+            className="text-xs text-[#0B3522] hover:text-[#184F34] font-bold flex items-center space-x-1 cursor-pointer"
           >
             <span>Full Weekly Report</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -717,18 +723,26 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
             <div
               key={day.date}
               onClick={() => onNavigate && onNavigate('attendance', { date: day.date })}
-              className={`p-3 rounded-lg border text-center transition-all cursor-pointer ${
+              className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
                 day.isToday
-                  ? 'bg-[#456B5A]/10 border-[#456B5A] ring-1 ring-[#456B5A]'
-                  : 'bg-[#696969]/5 border-[#696969]/15 hover:bg-[#696969]/10'
+                  ? 'bg-[#0B3522] text-white border-[#0B3522] shadow-sm'
+                  : 'bg-white/80 border-[#E8DFD0] hover:bg-white'
               }`}
             >
-              <div className="text-[11px] font-semibold uppercase text-[#696969]">{day.dayName.substring(0, 3)}</div>
-              <div className="font-mono text-xs font-bold text-[#014025] mt-0.5">{formatDateDisplay(day.date).substring(0, 5)}</div>
-              <div className="font-mono text-xs font-bold text-[#014025] mt-2">{formatINR(day.totalAmount)}</div>
-              <div className="text-[10px] text-[#696969] mt-0.5">{day.workerCount} Workers</div>
+              <div className={`text-[11px] font-bold uppercase ${day.isToday ? 'text-emerald-200' : 'text-[#526659]'}`}>
+                {day.dayName.substring(0, 3)}
+              </div>
+              <div className={`font-mono text-xs font-bold mt-0.5 ${day.isToday ? 'text-white' : 'text-[#0B3522]'}`}>
+                {formatDateDisplay(day.date).substring(0, 5)}
+              </div>
+              <div className={`font-mono text-xs font-black mt-2 ${day.isToday ? 'text-white' : 'text-[#0B3522]'}`}>
+                {formatINR(day.totalAmount)}
+              </div>
+              <div className={`text-[10px] font-medium mt-0.5 ${day.isToday ? 'text-emerald-200' : 'text-[#526659]'}`}>
+                {day.workerCount} Workers
+              </div>
               {day.isToday && (
-                <div className="mt-1 text-[9px] font-bold text-[#014025] bg-[#456B5A]/20 px-1 py-0.2 rounded">
+                <div className="mt-1 text-[9px] font-bold text-[#0B3522] bg-[#D5E3DB] px-1.5 py-0.2 rounded-md">
                   Today
                 </div>
               )}
@@ -740,17 +754,17 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
       {/* Today's Attendance Snapshot & Admin Audit Feed */}
       <div className={`grid grid-cols-1 ${isAdminAny ? 'lg:grid-cols-2' : ''} gap-6`}>
         {/* Today's Attendance Snapshot */}
-        <div className="bg-white rounded-xl border border-[#696969]/20 shadow-xs p-5 space-y-3">
-          <div className="flex items-center justify-between border-b border-[#696969]/15 pb-2.5">
+        <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] shadow-xs p-5 space-y-3">
+          <div className="flex items-center justify-between border-b border-[#E8DFD0] pb-2.5">
             <div className="flex items-center space-x-2">
-              <CalendarCheck2 className="w-4 h-4 text-[#0E6037]" />
-              <h2 className="font-bold text-sm text-[#0E6037]">Today&apos;s Attendance Submissions</h2>
+              <CalendarCheck2 className="w-4 h-4 text-[#0B3522]" />
+              <h2 className="font-bold text-sm text-[#0B3522]">Today&apos;s Attendance Submissions</h2>
             </div>
-            <span className="text-xs text-[#696969] font-mono">{formatDateDisplay(todayKolkata)}</span>
+            <span className="text-xs text-[#526659] font-mono">{formatDateDisplay(todayKolkata)}</span>
           </div>
 
           {todayAttendance.length === 0 ? (
-            <div className="py-8 text-center text-xs text-[#696969]">
+            <div className="py-8 text-center text-xs text-[#526659]">
               No attendance entries submitted yet for today. Click &quot;Add Attendance&quot; to begin.
             </div>
           ) : (
@@ -758,22 +772,22 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
               {todayAttendance.slice(0, 5).map((entry) => (
                 <div
                   key={entry.id}
-                  className="p-2.5 rounded-lg border border-[#696969]/15 bg-[#696969]/5 flex items-center justify-between text-xs"
+                  className="p-3 rounded-2xl border border-[#E8DFD0] bg-white/70 flex items-center justify-between text-xs"
                 >
                   <div>
-                    <div className="font-semibold text-[#014025]">{entry.team_name}</div>
-                    <div className="text-[11px] text-[#696969]">
+                    <div className="font-bold text-[#0B3522]">{entry.team_name}</div>
+                    <div className="text-[11px] text-[#526659] mt-0.5">
                       Staff: {entry.staff_name} • Shift: {entry.shift_batch}
                     </div>
                   </div>
                   <div className="text-right">
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                         entry.status === 'approved'
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-[#D5E3DB] text-[#1E4D38]'
                           : entry.status === 'change_pending_approval'
                           ? 'bg-amber-100 text-amber-800'
-                          : 'bg-blue-100 text-blue-800'
+                          : 'bg-emerald-50 text-emerald-800'
                       }`}
                     >
                       {entry.status === 'approved' ? 'Approved' : 'Pending Review'}
@@ -787,15 +801,15 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
 
         {/* Recent Audit History & Admin Alterations — STRICTLY FOR ADMINS ONLY */}
         {isAdminAny && (
-          <div className="bg-white rounded-xl border border-[#696969]/20 shadow-xs p-5 space-y-3">
-            <div className="flex items-center justify-between border-b border-[#696969]/15 pb-2.5">
+          <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] shadow-xs p-5 space-y-3">
+            <div className="flex items-center justify-between border-b border-[#E8DFD0] pb-2.5">
               <div className="flex items-center space-x-2">
-                <ShieldAlert className="w-4 h-4 text-[#0E6037]" />
-                <h2 className="font-bold text-sm text-[#0E6037]">Recent Audit &amp; Activity Log</h2>
+                <ShieldAlert className="w-4 h-4 text-[#0B3522]" />
+                <h2 className="font-bold text-sm text-[#0B3522]">Recent Audit &amp; Activity Log</h2>
               </div>
               <button
                 onClick={() => onNavigate && onNavigate('audit')}
-                className="text-xs text-[#0E6037] hover:text-[#0B4D2C] font-semibold flex items-center space-x-1 cursor-pointer"
+                className="text-xs text-[#0B3522] hover:text-[#184F34] font-bold flex items-center space-x-1 cursor-pointer"
               >
                 <span>Full Audit</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -803,17 +817,17 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
             </div>
 
             {recentAudits.length === 0 ? (
-              <div className="py-8 text-center text-xs text-[#696969]">No recent activity entries recorded.</div>
+              <div className="py-8 text-center text-xs text-[#526659]">No recent activity entries recorded.</div>
             ) : (
               <div className="space-y-2">
                 {recentAudits.map((log) => (
-                  <div key={log.id} className="p-2 rounded-lg border border-[#696969]/15 text-xs space-y-0.5">
+                  <div key={log.id} className="p-2.5 rounded-2xl border border-[#E8DFD0] bg-white/70 text-xs space-y-0.5">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-800">{log.action.replace(/_/g, ' ')}</span>
-                      <span className="text-[10px] text-slate-500 font-mono">{formatDateDisplay(log.created_at)}</span>
+                      <span className="font-bold text-[#0B3522]">{log.action.replace(/_/g, ' ')}</span>
+                      <span className="text-[10px] text-[#526659] font-mono">{formatDateDisplay(log.created_at)}</span>
                     </div>
-                    <div className="text-[11px] text-[#696969]">
-                      By <span className="font-medium text-[#0E6037]">{log.actor_name}</span> ({log.actor_role})
+                    <div className="text-[11px] text-[#526659]">
+                      By <span className="font-semibold text-[#0B3522]">{log.actor_name}</span> ({log.actor_role})
                       {log.reason && <span className="italic ml-1">— &quot;{log.reason}&quot;</span>}
                     </div>
                   </div>

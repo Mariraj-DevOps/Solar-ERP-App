@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { TopWaveHeader } from './components/TopWaveHeader';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -67,24 +68,15 @@ function ERPContent() {
     <div className="min-h-screen bg-[#EEE5D4] flex flex-col md:flex-row">
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
 
-      {/* Mobile-only top header bar with logo */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-30 bg-[#1C3829] px-4 flex items-center h-13 shadow-md">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-xl bg-white p-1 border border-emerald-400/25 shadow-xs flex items-center justify-center shrink-0">
-            <img
-              src="/assets/aistudio/solar_designs_clean_logo_bf464b07.png"
-              alt="Solar Designs"
-              className="w-full h-full object-contain"
-            />
-          </div>
-          <div>
-            <div className="font-bold text-xs text-white leading-tight tracking-tight">Solar Designs Pvt Ltd</div>
-            <div className="text-[10px] text-emerald-300/70 leading-tight">Labour Attendance ERP</div>
-          </div>
-        </div>
+      {/* Mobile-only wavy top header bar with logo matching Image 1 */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-30 shadow-md">
+        <TopWaveHeader
+          title="Solar Designs Pvt Ltd"
+          subtitle="Labour Attendance ERP"
+        />
       </header>
 
-      <main className="flex-1 min-w-0 p-3 sm:p-6 lg:p-8 pt-16 md:pt-3 pb-28 md:pb-12">
+      <main className="flex-1 min-w-0 p-3 sm:p-6 lg:p-8 pt-24 md:pt-4 pb-28 md:pb-12">
         {currentTab === 'dashboard' && <DashboardPage onNavigate={handleNavigate} />}
         {currentTab === 'attendance' && <DailyAttendancePage />}
         {currentTab === 'gps-attendance' && <GpsAttendancePage />}

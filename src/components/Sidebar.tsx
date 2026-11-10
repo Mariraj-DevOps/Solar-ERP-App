@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
+import { TopWaveHeader } from './TopWaveHeader';
 
 // Official Solar Icons Pack
 import { HomeIcon } from '@solar-icons/react/bold/home';
@@ -27,7 +28,6 @@ import { CardReceiveIcon } from '@solar-icons/react/bold/card-receive';
 import { CardSendIcon } from '@solar-icons/react/bold/card-send';
 import { AltArrowDownIcon } from '@solar-icons/react/bold/alt-arrow-down';
 import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left';
-import { CloseCircleIcon } from '@solar-icons/react/bold/close-circle';
 
 export type NavTab =
   | 'dashboard'
@@ -53,7 +53,6 @@ export type NavTab =
 interface SidebarProps {
   currentTab: NavTab;
   onTabChange: (tab: NavTab) => void;
-  /** Optional: notify parent layout so main content can animate or adjust. */
   onCollapsedChange?: (collapsed: boolean) => void;
 }
 
@@ -101,12 +100,8 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
 
         if (isAdminAny) {
           if (isMasterAdmin) {
-            const geofences = await api.geofenceRequests
-              .list({ status: 'pending' })
-              .catch(() => []);
-            if (isMounted && Array.isArray(geofences)) {
-              setPendingApprovals(geofences.length);
-            }
+            const queue = await api.admin.getQueue();
+            if (isMounted) setPendingApprovals(queue.totalPending || 0);
           } else {
             const queue = await api.attendance.getQueue().catch(() => []);
             if (isMounted && Array.isArray(queue)) {
@@ -124,7 +119,6 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
     };
   }, [isAdminAny, isMasterAdmin]);
 
-  /* ---------------- Category toggle ---------------- */
   const toggleCategory = (catId: string) => {
     setCollapsedCategories((prev) => ({
       ...prev,
@@ -138,44 +132,44 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
       id: 'overview',
       name: 'Overview',
       items: [
-        { id: 'dashboard', label: 'Dashboard', icon: <WidgetIcon size={18} /> },
-        { id: 'my-reports', label: 'My Workspace', icon: <DocumentTextIcon size={18} /> },
+        { id: 'dashboard', label: 'Dashboard', icon: <WidgetIcon size={20} /> },
+        { id: 'my-reports', label: 'My Workspace', icon: <DocumentTextIcon size={20} /> },
       ],
     },
     {
       id: 'operations',
       name: 'Operations',
       items: [
-        { id: 'attendance', label: 'Daily Attendance', icon: <CalendarDateIcon size={18} /> },
+        { id: 'attendance', label: 'Daily Attendance', icon: <CalendarDateIcon size={20} /> },
         {
           id: 'approvals',
           label: 'Approval Queue',
-          icon: <CheckCircleIcon size={18} />,
+          icon: <CheckCircleIcon size={20} />,
           badge: pendingApprovals,
           adminOnly: true,
         },
-        { id: 'weekly-reports', label: 'Weekly Reports', icon: <DocumentTextIcon size={18} /> },
-        { id: 'monthly-reports', label: 'Monthly Reports', icon: <CalendarMarkIcon size={18} /> },
-        { id: 'payments', label: 'Payment Tracker', icon: <CardIcon size={18} /> },
+        { id: 'weekly-reports', label: 'Weekly Reports', icon: <DocumentTextIcon size={20} /> },
+        { id: 'monthly-reports', label: 'Monthly Reports', icon: <CalendarMarkIcon size={20} /> },
+        { id: 'payments', label: 'Payment Tracker', icon: <CardIcon size={20} /> },
       ],
     },
     {
       id: 'gps-geofence',
       name: 'GPS & Field Attendance',
       items: [
-        { id: 'gps-attendance', label: 'GPS Attendance Queue', icon: <MapPointIcon size={18} /> },
-        { id: 'labourers', label: 'Labourer Accounts', icon: <UsersGroupRoundedIcon size={18} /> },
-        { id: 'worksites', label: 'Worksites & Geofences', icon: <BuildingsIcon size={18} /> },
+        { id: 'gps-attendance', label: 'GPS Attendance Queue', icon: <MapPointIcon size={20} /> },
+        { id: 'labourers', label: 'Labourer Accounts', icon: <UsersGroupRoundedIcon size={20} /> },
+        { id: 'worksites', label: 'Worksites & Geofences', icon: <BuildingsIcon size={20} /> },
       ],
     },
     {
       id: 'admin',
       name: 'Administration',
       items: [
-        { id: 'teams', label: 'Teams & Templates', icon: <UserHandsIcon size={18} /> },
-        { id: 'charges', label: 'Additional Charges', icon: <CardReceiveIcon size={18} /> },
-        { id: 'adjustments', label: 'Advances & Deductions', icon: <CardSendIcon size={18} /> },
-        { id: 'attachments', label: 'Document Vault', icon: <PaperclipIcon size={18} /> },
+        { id: 'teams', label: 'Teams & Templates', icon: <UserHandsIcon size={20} /> },
+        { id: 'charges', label: 'Additional Charges', icon: <CardReceiveIcon size={20} /> },
+        { id: 'adjustments', label: 'Advances & Deductions', icon: <CardSendIcon size={20} /> },
+        { id: 'attachments', label: 'Document Vault', icon: <PaperclipIcon size={20} /> },
       ],
     },
     {
@@ -185,23 +179,23 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
         {
           id: 'staff',
           label: 'Staff Management',
-          icon: <UserCheckIcon size={18} />,
+          icon: <UserCheckIcon size={20} />,
           adminOnly: true,
         },
         {
           id: 'secondary-admins',
           label: 'Manager Scopes',
-          icon: <UserSpeakIcon size={18} />,
+          icon: <UserSpeakIcon size={20} />,
           masterAdminOnly: true,
         },
         {
           id: 'notifications',
           label: 'Notifications',
-          icon: <BellIcon size={18} />,
+          icon: <BellIcon size={20} />,
           badge: unreadNotifs,
         },
-        { id: 'audit', label: 'Audit History', icon: <HistoryIcon size={18} />, adminOnly: true },
-        { id: 'settings', label: 'Settings', icon: <SettingsIcon size={18} />, adminOnly: true },
+        { id: 'audit', label: 'Audit History', icon: <HistoryIcon size={20} />, adminOnly: true },
+        { id: 'settings', label: 'Settings', icon: <SettingsIcon size={20} />, adminOnly: true },
       ],
     },
   ];
@@ -211,18 +205,18 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
     setMobileMenuOpen(false);
   };
 
-  /* ---------------- Logo Spin on Pointer Enter (from PillNav) ---------------- */
+  /* ---------------- Logo Spin on Pointer Enter ---------------- */
   const markRef = useRef<HTMLDivElement>(null);
   const spinLogo = (e: React.PointerEvent) => {
     const mark = markRef.current;
     if (!mark || e.pointerType === 'touch' || mark.getAnimations().length) return;
     mark.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], {
       duration: 900,
-      easing: 'cubic-bezier(0.65, 0, 0.25, 1)'
+      easing: 'cubic-bezier(0.65, 0, 0.25, 1)',
     });
   };
 
-  /* ---------------- Mobile Bottom Nav Items (fixed 5, Solar Icons) ---------------- */
+  /* ---------------- Mobile Bottom Nav Items ---------------- */
   interface MobileNavItem {
     id: NavTab | 'more_menu';
     label: string;
@@ -230,14 +224,14 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
     badge?: number;
   }
   const mobileNavItems: MobileNavItem[] = [
-    { id: 'dashboard',      label: 'Home',       icon: <HomeIcon size={24} /> },
-    { id: 'attendance',     label: 'Attendance', icon: <CalendarDateIcon size={24} /> },
-    { id: 'gps-attendance', label: 'GPS',        icon: <MapPointIcon size={24} /> },
-    { id: 'payments',       label: 'Payments',   icon: <CardIcon size={24} /> },
+    { id: 'dashboard', label: 'Home', icon: <HomeIcon size={22} /> },
+    { id: 'attendance', label: 'Attendance', icon: <CalendarDateIcon size={22} /> },
+    { id: 'gps-attendance', label: 'GPS', icon: <MapPointIcon size={22} /> },
+    { id: 'payments', label: 'Payments', icon: <CardIcon size={22} /> },
     {
       id: 'more_menu',
       label: 'More',
-      icon: <MenuDotsIcon size={24} />,
+      icon: <MenuDotsIcon size={22} />,
       badge: pendingApprovals > 0 ? pendingApprovals : undefined,
     },
   ];
@@ -246,19 +240,18 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
     <>
       {/* 1. Desktop & Tablet Sidebar */}
       <aside
-        className={`hidden md:flex flex-col h-screen sticky top-0 bg-[#456B5A] border-r border-[#355346] text-white/90 shrink-0 select-none z-30 transition-[width] duration-300 ease-in-out overflow-hidden ${
+        className={`hidden md:flex flex-col h-screen sticky top-0 bg-[#0B3522] border-r border-[#072517] text-white/90 shrink-0 select-none z-30 transition-[width] duration-300 ease-in-out overflow-hidden ${
           isCollapsed ? 'w-[76px]' : 'w-64'
         }`}
       >
         {/* Brand Header */}
-        <div className="p-3.5 border-b border-[#355346] flex items-center justify-between relative min-h-[57px]">
-          {/* Expanded brand */}
+        <div className="p-3.5 border-b border-[#14472F] flex items-center justify-between relative min-h-[57px]">
           {!isCollapsed ? (
             <div className="flex items-center space-x-2.5 overflow-hidden">
               <div
                 ref={markRef}
                 onPointerEnter={spinLogo}
-                className="w-8.5 h-8.5 rounded-xl bg-white p-1 border border-emerald-400/25 shadow-2xs flex items-center justify-center shrink-0 cursor-pointer"
+                className="w-9 h-9 rounded-2xl bg-white keep-white p-1 border border-white/20 shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
                 title="Solar Designs (Hover to spin)"
               >
                 <img
@@ -271,14 +264,14 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
                 <div className="font-bold text-xs text-white tracking-tight leading-tight truncate">
                   Solar Designs Pvt Ltd
                 </div>
+                <div className="text-[10px] text-emerald-300/80 leading-tight">Labour ERP</div>
               </div>
             </div>
           ) : (
-            /* Collapsed brand (icon only) */
             <div
               ref={markRef}
               onPointerEnter={spinLogo}
-              className="w-8.5 h-8.5 rounded-xl bg-white p-1 border border-emerald-400/25 shadow-2xs flex items-center justify-center mx-auto cursor-pointer"
+              className="w-9 h-9 rounded-2xl bg-white keep-white p-1 border border-white/20 shadow-xs flex items-center justify-center mx-auto cursor-pointer"
               title="Solar Designs (Hover to spin)"
             >
               <img
@@ -289,10 +282,10 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
             </div>
           )}
 
-          {/* Toggle button — chevron rotates 180° */}
+          {/* Toggle collapse button */}
           <button
             onClick={toggleCollapse}
-            className={`p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer ${
+            className={`p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer ${
               isCollapsed ? 'absolute bottom-1 right-1' : ''
             }`}
             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
@@ -307,15 +300,15 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
 
         {/* User Card (expanded only) */}
         {user && !isCollapsed && (
-          <div className="mx-3 my-2 rounded-xl bg-black/15 border border-white/10 flex items-center px-3 py-2.5 transition-all">
+          <div className="mx-3 my-2.5 rounded-2xl bg-[#082819] border border-white/10 flex items-center px-3 py-2.5 transition-all">
             <div className="flex items-center space-x-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-full bg-[#014025] border border-white/20 flex items-center justify-center text-white shrink-0 font-bold text-xs shadow-2xs">
+              <div className="w-8 h-8 rounded-full bg-[#184F34] border border-white/20 flex items-center justify-center text-white shrink-0 font-bold text-xs shadow-xs">
                 {user.fullName?.charAt(0) || 'U'}
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-white truncate">{user.fullName}</div>
-                <div className="text-[10px] text-emerald-100/80 flex items-center space-x-1">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-300" />
+                <div className="text-[10px] text-emerald-300/80 flex items-center space-x-1.5 mt-0.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   <span className="capitalize truncate">
                     {user.role === 'master_admin'
                       ? 'Master Admin'
@@ -344,11 +337,10 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
 
             return (
               <div key={category.id} className="space-y-1">
-                {/* Category Header */}
                 {!isCollapsed && (
                   <button
                     onClick={() => toggleCategory(category.id)}
-                    className="w-full flex items-center justify-between px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider text-white/70 hover:text-white transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-between px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider text-emerald-200/60 hover:text-white transition-colors cursor-pointer"
                   >
                     <span>{category.name}</span>
                     <span
@@ -361,7 +353,6 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
                   </button>
                 )}
 
-                {/* Category Items */}
                 <div className={isCollapsed || !isCatCollapsed ? 'space-y-0.5' : 'space-y-0.5 hidden'}>
                   {visibleItems.map((item) => {
                     const isActive = currentTab === item.id;
@@ -370,13 +361,12 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
                         <button
                           onClick={() => handleSelectTab(item.id)}
                           aria-current={isActive ? 'page' : undefined}
-                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer relative z-10 ${
+                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer relative z-10 ${
                             isActive
                               ? 'text-white font-semibold'
-                              : 'text-white/85 hover:text-white hover:bg-white/10'
+                              : 'text-white/80 hover:text-white hover:bg-white/10'
                           } ${isCollapsed ? 'justify-center' : ''}`}
                         >
-                          {/* Gliding Spring Active Pill (matching PillNav bounce & physics) */}
                           {isActive && (
                             <motion.div
                               layoutId="sidebarActivePill"
@@ -386,12 +376,12 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
                                 damping: 28,
                                 bounce: 0.3,
                               }}
-                              className="absolute inset-0 rounded-lg bg-[#014025] ring-1 ring-white/15 shadow-sm z-0"
+                              className="absolute inset-0 rounded-xl bg-[#184F34] ring-1 ring-white/15 shadow-sm z-0"
                             />
                           )}
 
                           <div className="flex items-center space-x-2.5 min-w-0 relative z-10">
-                            <span className={isActive ? 'text-white' : 'text-emerald-100'}>
+                            <span className={isActive ? 'text-white' : 'text-emerald-200/80'}>
                               {item.icon}
                             </span>
                             {!isCollapsed && (
@@ -402,12 +392,11 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
                           </div>
 
                           {!isCollapsed && item.badge && item.badge > 0 ? (
-                            <span className="px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[10px] font-bold relative z-10">
+                            <span className="px-1.5 py-0.2 bg-emerald-500 text-white rounded-full text-[10px] font-bold relative z-10">
                               {item.badge}
                             </span>
                           ) : null}
 
-                          {/* Signature active dot indicator */}
                           {isActive && !isCollapsed && (
                             <motion.span
                               layoutId="sidebarActiveDot"
@@ -419,26 +408,7 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
                               className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 relative z-10 ml-1.5"
                             />
                           )}
-
-                          {isCollapsed && item.badge && item.badge > 0 && (
-                            <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full z-10" />
-                          )}
                         </button>
-
-                        {/* Tooltip (collapsed only) */}
-                        {isCollapsed && (
-                          <div
-                            role="tooltip"
-                            className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 rounded-md bg-[#014025] text-white text-[11px] font-medium whitespace-nowrap opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150 shadow-lg ring-1 ring-white/10 z-50"
-                          >
-                            {item.label}
-                            {item.badge && item.badge > 0 ? (
-                              <span className="ml-1.5 px-1.5 py-0.2 bg-amber-500 rounded-full text-[9px] font-bold">
-                                {item.badge}
-                              </span>
-                            ) : null}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -449,10 +419,10 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
         </nav>
 
         {/* Footer Logout */}
-        <div className="p-3 border-t border-[#355346]">
+        <div className="p-3 border-t border-[#14472F]">
           <button
             onClick={logout}
-            className={`w-full flex items-center space-x-2.5 px-2.5 py-2 rounded-lg text-xs font-medium text-white/75 hover:text-white hover:bg-white/10 transition-colors cursor-pointer ${
+            className={`w-full flex items-center space-x-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-white/75 hover:text-white hover:bg-white/10 transition-colors cursor-pointer ${
               isCollapsed ? 'justify-center' : ''
             }`}
             title="Sign Out"
@@ -463,71 +433,62 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
         </div>
       </aside>
 
-      {/* 3. Mobile Full-Screen Menu (More drawer → full window) */}
+      {/* 2. Mobile Full Menu Modal (Exactly matching Image 2) */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
-            className="md:hidden fixed inset-0 z-50 flex flex-col bg-[#1C3829] overflow-hidden"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
+            className="md:hidden fixed inset-0 z-50 flex flex-col bg-[#EEE5D4] overflow-hidden"
+            initial={{ opacity: 0, y: '100%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 pt-12 pb-4 shrink-0">
-              <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-white p-1 border border-emerald-400/25 shadow-sm flex items-center justify-center shrink-0">
-                  <img
-                    src="/assets/aistudio/solar_designs_clean_logo_bf464b07.png"
-                    alt="Logo"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-white leading-tight">Solar Designs Pvt Ltd</div>
-                  <div className="text-[11px] text-emerald-300/80">Full Menu</div>
-                </div>
-              </div>
-              <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white/70 hover:text-white active:scale-95 transition-all"
-                aria-label="Close menu"
-              >
-                <CloseCircleIcon size={20} />
-              </button>
-            </div>
+            {/* Top Wave Header matching Image 2 */}
+            <TopWaveHeader
+              title="Solar Designs Pvt Ltd"
+              subtitle="Full Menu"
+              showClose={true}
+              onClose={() => setMobileMenuOpen(false)}
+            />
 
-            {/* User card */}
-            {user && (
-              <div className="mx-5 mb-4 rounded-2xl bg-white/8 border border-white/10 flex items-center px-4 py-3 gap-3 shrink-0">
-                <div className="w-10 h-10 rounded-full bg-[#014025] border border-white/20 flex items-center justify-center text-white shrink-0 font-bold text-sm shadow-sm">
-                  {user.fullName?.charAt(0) || 'U'}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-white truncate">{user.fullName}</div>
-                  <div className="text-[11px] text-emerald-300/80 flex items-center gap-1.5 mt-0.5">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <span className="capitalize">
-                      {user.role === 'master_admin'
-                        ? 'Master Admin'
-                        : user.role === 'secondary_admin'
-                        ? 'Operations Manager'
-                        : 'Staff Workspace'}
-                    </span>
+            {/* Scrollable Menu Items on #EEE5D4 */}
+            <div className="flex-1 overflow-y-auto px-4 pt-1 pb-24 space-y-4 no-scrollbar">
+              {/* User Profile Card */}
+              {user && (
+                <div className="rounded-2xl bg-[#FAF7F0] border border-[#E8DFD0] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-[#0B3522] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                      {user.fullName?.charAt(0) || 'U'}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-[#0B3522] truncate">
+                        {user.fullName || 'ERP Administrator'}
+                      </div>
+                      <div className="text-xs text-[#526659] flex items-center gap-1.5 mt-0.5">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                        <span className="truncate">
+                          {user.role === 'master_admin'
+                            ? 'Master Admin'
+                            : user.role === 'secondary_admin'
+                            ? 'Operations Manager'
+                            : 'Staff Workspace'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <button
-                  onClick={logout}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-900/40 text-red-300 border border-red-700/40 text-xs font-semibold shrink-0"
-                >
-                  <Logout2Icon size={14} />
-                  Sign Out
-                </button>
-              </div>
-            )}
 
-            {/* Scrollable nav categories */}
-            <div className="flex-1 overflow-y-auto px-5 pb-8 space-y-5 no-scrollbar">
+                  {/* Rose Tinted Sign Out Button */}
+                  <button
+                    onClick={logout}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EEDCDA] hover:bg-[#E6D1CF] text-[#8C3A36] text-xs font-semibold shrink-0 transition-colors cursor-pointer"
+                  >
+                    <Logout2Icon size={14} />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Categorized Menu Items */}
               {navCategories.map((cat) => {
                 const visible = cat.items.filter((item) => {
                   if (item.masterAdminOnly && !isMasterAdmin) return false;
@@ -537,37 +498,76 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
                 });
                 if (visible.length === 0) return null;
 
+                const isOverview = cat.id === 'overview';
+
                 return (
-                  <div key={cat.id} className="space-y-2">
-                    {/* Category label */}
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-white/40 px-1">
-                      {cat.name}
+                  <div key={cat.id} className="space-y-2.5">
+                    {/* Category Header with Horizontal Divider Line */}
+                    <div className="flex items-center space-x-3 pt-1">
+                      <span className="text-xs font-bold text-[#3B4D40] uppercase tracking-wider">
+                        {cat.name}
+                      </span>
+                      <div className="flex-1 border-b border-[#D8CDBA]" />
                     </div>
 
-                    {/* Items grid */}
-                    <div className="grid grid-cols-3 gap-2.5">
+                    {/* Cards Grid: 2 columns for Overview, 3 columns for others */}
+                    <div className={isOverview ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-3 gap-2.5'}>
                       {visible.map((item) => {
                         const isActive = currentTab === item.id;
+                        const isApprovalQueue = item.id === 'approvals';
+
+                        if (isActive) {
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => handleSelectTab(item.id)}
+                              className="bg-[#2D6043] text-white rounded-2xl py-4 px-3 flex flex-col items-center justify-center shadow-md cursor-pointer active:scale-95 transition-all text-center"
+                            >
+                              <div className="w-6 h-6 flex items-center justify-center text-white">
+                                {item.icon}
+                              </div>
+                              <span className="text-xs font-semibold text-white mt-2 leading-tight">
+                                {item.label}
+                              </span>
+                            </button>
+                          );
+                        }
+
+                        if (isApprovalQueue) {
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => handleSelectTab(item.id)}
+                              className="bg-[#DDE8E0] border border-[#C8DACF] rounded-2xl py-3 px-2 flex flex-col items-center justify-center shadow-xs cursor-pointer active:scale-95 transition-all text-center"
+                            >
+                              <span className="text-xs font-bold text-[#0B3522] leading-none mb-1">
+                                {item.badge || 0}
+                              </span>
+                              <div className="w-5 h-5 flex items-center justify-center text-[#0B3522]">
+                                <CheckCircleIcon size={20} />
+                              </div>
+                              <span className="text-xs font-semibold text-[#0B3522] mt-1 leading-tight">
+                                {item.label}
+                              </span>
+                            </button>
+                          );
+                        }
+
                         return (
                           <button
                             key={item.id}
                             onClick={() => handleSelectTab(item.id)}
-                            className={`relative flex flex-col items-center justify-center gap-1.5 rounded-2xl py-4 px-2 text-center transition-all active:scale-95 ${
-                              isActive
-                                ? 'bg-[#3dba6b] shadow-lg shadow-emerald-900/40'
-                                : 'bg-white/8 border border-white/10 hover:bg-white/15'
-                            }`}
+                            className="bg-[#FAF7F0] border border-[#E8DFD0] rounded-2xl py-3.5 px-2.5 flex flex-col items-center justify-center shadow-xs hover:bg-white cursor-pointer active:scale-95 transition-all text-center relative"
                           >
-                            {/* Badge */}
-                            {item.badge && item.badge > 0 && (
-                              <span className="absolute top-2 right-2 min-w-[18px] h-[18px] px-1 bg-amber-400 text-black rounded-full text-[9px] font-bold flex items-center justify-center">
+                            {item.badge && item.badge > 0 ? (
+                              <span className="absolute top-2 right-2 min-w-[18px] h-[18px] px-1 bg-[#184F34] text-white rounded-full text-[9px] font-bold flex items-center justify-center">
                                 {item.badge}
                               </span>
-                            )}
-                            <span className={isActive ? 'text-white' : 'text-emerald-200/80'}>
+                            ) : null}
+                            <div className="w-6 h-6 flex items-center justify-center text-[#3D5A47]">
                               {item.icon}
-                            </span>
-                            <span className={`text-[11px] font-medium leading-tight ${isActive ? 'text-white font-semibold' : 'text-white/75'}`}>
+                            </div>
+                            <span className="text-xs font-semibold text-[#1C3829] mt-2 leading-tight">
                               {item.label}
                             </span>
                           </button>
@@ -582,9 +582,12 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
         )}
       </AnimatePresence>
 
-      {/* 2. Mobile Bottom Nav — Dark Pill Bar with Raised Bubble Active State */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-3 pb-safe-or-3" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
-        <div className="bg-[#1C3829] rounded-[28px] px-1 pt-1 pb-2 flex items-end justify-around shadow-2xl">
+      {/* 3. Mobile Bottom Nav Bar (Exactly matching Image 1) */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-3 pb-3"
+        style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}
+      >
+        <div className="bg-[#0B3522] rounded-[30px] px-2 py-1.5 flex items-center justify-around shadow-2xl border border-[#14472F]/50">
           {mobileNavItems.map((item) => {
             const isActive = currentTab === item.id || (item.id === 'more_menu' && mobileMenuOpen);
             return (
@@ -597,51 +600,30 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
                     handleSelectTab(item.id as NavTab);
                   }
                 }}
-                className="flex flex-col items-center justify-end flex-1 min-w-0 relative focus:outline-none"
+                className="flex-1 min-w-0 flex items-center justify-center focus:outline-none cursor-pointer"
                 aria-label={item.label}
               >
-                {/* Raised bubble (active) or plain icon (inactive) */}
-                <div className="relative flex flex-col items-center">
-                  <motion.div
-                    layoutId={`mobileNavBubble-${item.id}`}
-                    animate={
-                      isActive
-                        ? { y: -14, scale: 1 }
-                        : { y: 0, scale: 1 }
-                    }
-                    transition={{ type: 'spring', stiffness: 420, damping: 30 }}
-                    className={`flex items-center justify-center rounded-full ${
-                      isActive
-                        ? 'bg-[#3dba6b] w-12 h-12 shadow-lg shadow-emerald-900/60'
-                        : 'w-10 h-10'
-                    }`}
-                  >
-                    {/* Badge dot */}
-                    {item.badge && item.badge > 0 && !isActive && (
-                      <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-amber-400 rounded-full border-2 border-[#1C3829] z-10" />
-                    )}
-                    <span className={isActive ? 'text-white' : 'text-white/55'}>
-                      {item.icon}
+                {isActive ? (
+                  /* Active capsule pill matching Image 1 Home */
+                  <div className="bg-[#184F34] px-4 py-1.5 rounded-2xl flex flex-col items-center justify-center text-white shadow-inner min-w-[62px]">
+                    <span className="text-white">{item.icon}</span>
+                    <span className="text-[10px] font-semibold text-white mt-0.5 leading-none">
+                      {item.label}
                     </span>
-                  </motion.div>
-                </div>
-
-                {/* Label */}
-                <span
-                  className={`text-[10px] mt-0.5 leading-none font-medium transition-colors duration-200 ${
-                    isActive ? 'text-white font-semibold' : 'text-white/50'
-                  }`}
-                >
-                  {item.label}
-                </span>
-
-                {/* Active underline dot */}
-                {isActive && (
-                  <motion.span
-                    layoutId="mobileNavDot"
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                    className="mt-1 w-1 h-1 rounded-full bg-[#3dba6b]"
-                  />
+                  </div>
+                ) : (
+                  /* Inactive item */
+                  <div className="px-3 py-1.5 flex flex-col items-center justify-center text-white/70 hover:text-white transition-colors">
+                    <div className="relative">
+                      {item.badge && item.badge > 0 && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full" />
+                      )}
+                      <span>{item.icon}</span>
+                    </div>
+                    <span className="text-[10px] font-medium text-white/70 mt-0.5 leading-none">
+                      {item.label}
+                    </span>
+                  </div>
                 )}
               </button>
             );

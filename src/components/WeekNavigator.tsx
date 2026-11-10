@@ -53,22 +53,22 @@ export function WeekNavigator({ currentWeekStart, onWeekChange }: WeekNavigatorP
   }, [currentWeekBounds.startDate, bounds.startDate, bounds.displayRange]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 bg-white border border-[#696969]/20 rounded-lg p-1.5 shadow-xs">
-      <div className="flex items-center space-x-1">
+    <div className="flex flex-col gap-2 bg-[#FAF7F0] border border-[#E8DFD0] rounded-2xl p-2.5 sm:p-3 shadow-xs w-full sm:w-auto">
+      <div className="flex items-center justify-between gap-1.5">
         <button
           onClick={handlePrev}
           title="Previous reporting week (Saturday - Friday)"
-          className="p-1.5 text-[#696969] hover:text-[#014025] hover:bg-[#696969]/10 rounded-md transition-colors cursor-pointer"
+          className="p-1.5 text-[#526659] hover:text-[#0B3522] hover:bg-black/5 rounded-xl transition-colors cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
 
-        <div className="flex items-center space-x-2 px-2.5 py-1 bg-[#696969]/5 border border-[#696969]/20 rounded-md">
-          <Calendar className="w-4 h-4 text-[#696969]" />
-          <span className="text-xs font-semibold text-[#014025] tracking-tight font-mono">
+        <div className="flex items-center space-x-2 px-3 py-1.5 bg-white/80 border border-[#E8DFD0] rounded-xl flex-1 justify-center">
+          <Calendar className="w-4 h-4 text-[#0B3522]" />
+          <span className="text-xs font-bold text-[#0B3522] tracking-tight font-mono">
             {bounds.displayRange}
           </span>
-          <span className="text-white bg-[#014025] px-1.5 py-0.5 rounded uppercase font-bold text-[10px]">
+          <span className="text-white bg-[#0B3522] px-2 py-0.5 rounded-lg uppercase font-bold text-[10px] tracking-wide">
             Sat–Fri
           </span>
         </div>
@@ -76,31 +76,20 @@ export function WeekNavigator({ currentWeekStart, onWeekChange }: WeekNavigatorP
         <button
           onClick={handleNext}
           title="Next reporting week (Saturday - Friday)"
-          className="p-1.5 text-[#696969] hover:text-[#014025] hover:bg-[#696969]/10 rounded-md transition-colors cursor-pointer"
+          className="p-1.5 text-[#526659] hover:text-[#0B3522] hover:bg-black/5 rounded-xl transition-colors cursor-pointer"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="flex items-center space-x-2">
-        {!isCurrentWeek && (
-          <button
-            onClick={handleCurrentWeek}
-            className="text-[#014025] bg-[#014025]/10 hover:bg-[#014025]/20 rounded-md font-medium text-xs px-2 py-1 transition-colors cursor-pointer"
-          >
-            Current Week
-          </button>
-        )}
-
-        <div className="w-56 sm:w-64">
-          <CustomSelect
-            value={bounds.startDate}
-            onChange={(val) => onWeekChange(String(val))}
-            options={weekOptions}
-            size="sm"
-            placeholder="Jump to week..."
-          />
-        </div>
+      <div className="w-full">
+        <CustomSelect
+          value={bounds.startDate}
+          onChange={(val) => onWeekChange(String(val))}
+          options={weekOptions}
+          size="sm"
+          placeholder="Select reporting cycle..."
+        />
       </div>
     </div>
   );

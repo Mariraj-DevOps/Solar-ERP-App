@@ -1,7 +1,49 @@
 @import "tailwindcss";
 
+:root {
+  --erp-bg: #EEE5D4;
+  --erp-card: #FAF7F0;
+  --erp-card-border: #E8DFD0;
+  --erp-green-dark: #0B3522;
+  --erp-green-mid: #184F34;
+  --erp-green-light: #DCEAE2;
+}
+
 body {
   background-color: #EEE5D4;
+  color: #142C1E;
+}
+
+/* Card theme harmonization for the entire application */
+.bg-white:not(.keep-white) {
+  background-color: #FAF7F0 !important;
+}
+
+.border-slate-200,
+.border-slate-100 {
+  border-color: #E8DFD0 !important;
+}
+
+/* Subtle organic wave watermark on KPI & financial summary cards */
+.card-wave-bg {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-wave-bg::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 150px;
+  height: 95px;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 120' fill='none'%3E%3Cpath d='M0 120 C50 110 90 90 120 60 C150 30 170 35 200 10 L200 120 Z' fill='%230B3522' fill-opacity='0.12'/%3E%3Cpath d='M30 120 C70 105 110 80 140 50 C170 20 185 25 200 0 L200 120 Z' fill='%233DBA6B' fill-opacity='0.08'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right bottom;
+  background-size: contain;
+  opacity: 0.95;
+  z-index: 1;
 }
 
 /* Hide scrollbars globally across modern browsers while preserving full scrollability */
