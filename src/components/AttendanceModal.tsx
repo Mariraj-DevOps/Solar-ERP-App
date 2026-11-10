@@ -538,7 +538,7 @@ export function AttendanceModal({
               <input
                 type="text"
                 disabled={isSubmitting}
-                placeholder="e.g. Lumia Building / Block A"
+                placeholder="Worksite / location"
                 value={locationProject}
                 onChange={(e) => setLocationProject(e.target.value)}
                 className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"
@@ -995,7 +995,7 @@ export function AttendanceModal({
               <textarea
                 rows={2}
                 disabled={isSubmitting}
-                placeholder="Explain the reason for changing previously approved attendance..."
+                placeholder="Reason for change..."
                 value={changeReason}
                 onChange={(e) => setChangeReason(e.target.value)}
                 className="w-full border border-amber-300 rounded-md px-3 py-2 text-xs bg-amber-50/30 text-[#014025] focus:ring-1 focus:ring-amber-500 focus:outline-none"
@@ -1011,7 +1011,7 @@ export function AttendanceModal({
             <input
               type="text"
               disabled={isSubmitting}
-              placeholder="e.g. 5th floor column casting completed on schedule"
+              placeholder="Work remarks / notes"
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"

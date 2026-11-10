@@ -208,7 +208,7 @@ export function ChargeModal({
             <input
               type="text"
               required
-              placeholder="e.g. Grinding machine hire, Steel blade 4-inch, Auto trip to hardware shop"
+              placeholder="Description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"
@@ -222,7 +222,7 @@ export function ChargeModal({
                 type="number"
                 step="any"
                 min="0"
-                placeholder="e.g. 4"
+                placeholder="Qty"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 className="w-full border border-[#696969]/20 rounded px-2 py-1 text-xs text-right font-mono bg-white text-[#014025]"
@@ -233,7 +233,7 @@ export function ChargeModal({
               <label className="block text-[11px] font-semibold text-[#014025] mb-1">Unit</label>
               <input
                 type="text"
-                placeholder="Nos, Trips, Days"
+                placeholder="Unit"
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
                 className="w-full border border-[#696969]/20 rounded px-2 py-1 text-xs bg-white text-[#014025]"
@@ -246,7 +246,7 @@ export function ChargeModal({
                 type="number"
                 step="any"
                 min="0"
-                placeholder="e.g. 100"
+                placeholder="Rate"
                 value={rate}
                 onChange={(e) => setRate(e.target.value)}
                 className="w-full border border-[#696969]/20 rounded px-2 py-1 text-xs text-right font-mono bg-white text-[#014025]"
@@ -277,7 +277,7 @@ export function ChargeModal({
                 <span className="text-[11px] text-[#456B5A] font-semibold">Override Reason Required *</span>
                 <input
                   type="text"
-                  placeholder="Reason for rate/amount adjustment..."
+                  placeholder="Reason for override..."
                   value={overrideReason}
                   onChange={(e) => setOverrideReason(e.target.value)}
                   className="w-full border border-[#456B5A]/30 rounded px-2 py-1 text-xs bg-white text-[#014025] placeholder:text-[#696969]"

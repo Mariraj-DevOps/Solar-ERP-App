@@ -262,13 +262,6 @@ export function LabourersManagementPage() {
               {isMasterAdmin ? 'Master Admin • Company-wide Scope' : isSecondaryAdmin ? 'Secondary Admin • Supervised Scope' : 'Staff Supervisor • My Team Scope'}
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            {isMasterAdmin
-              ? 'View all company labourers overall or by team, register, edit details, reassign, or remove worker profiles.'
-              : isSecondaryAdmin
-              ? 'View and manage labourers under your supervised teams and staff, update profiles, or reassign.'
-              : 'View and manage labourers assigned to your teams, update details, or remove active members.'}
-          </p>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -321,7 +314,7 @@ export function LabourersManagementPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by worker name, mobile, Aadhaar, designation..."
+            placeholder="Search labourers..."
             className="w-full pl-9 pr-4 py-1.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037]"
           />
         </div>
@@ -731,7 +724,7 @@ export function LabourersManagementPage() {
                     required
                     value={regForm.fullName}
                     onChange={(e) => setRegForm({ ...regForm, fullName: e.target.value })}
-                    placeholder="e.g. Ramesh Kumar"
+                    placeholder="Full name"
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl"
                   />
                 </div>
@@ -862,7 +855,7 @@ export function LabourersManagementPage() {
                     type="text"
                     value={regForm.designation}
                     onChange={(e) => setRegForm({ ...regForm, designation: e.target.value })}
-                    placeholder="e.g. Lead Mason"
+                    placeholder="Designation"
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl"
                   />
                 </div>
@@ -948,7 +941,7 @@ export function LabourersManagementPage() {
                   type="text"
                   value={transferReason}
                   onChange={(e) => setTransferReason(e.target.value)}
-                  placeholder="e.g. Transferred to Lumia tower masonry team"
+                  placeholder="Reason for reassignment..."
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl"
                 />
               </div>
@@ -1183,7 +1176,7 @@ export function LabourersManagementPage() {
                     type="text"
                     value={editForm.designation}
                     onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
-                    placeholder="e.g. Electrician, Helper, Welder"
+                    placeholder="Designation"
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037]"
                   />
                 </div>

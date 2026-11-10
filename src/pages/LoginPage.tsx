@@ -220,7 +220,7 @@ export function LoginPage() {
                     required
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="Enter registered email or mobile"
+                    placeholder="Email or mobile number"
                     className="w-full pl-10 pr-3.5 py-2.5 text-sm border border-[#D5E0DA] rounded-xl bg-[#F8FAF9] text-slate-800 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-[#0E6037]/15 focus:border-[#0E6037] focus:bg-white hover:border-slate-300"
                   />
                 </div>
@@ -271,14 +271,11 @@ export function LoginPage() {
                         required
                         value={mobileNumber}
                         onChange={(e) => setMobileNumber(e.target.value)}
-                        placeholder="Enter 10-digit mobile number"
+                        placeholder="10-digit mobile number"
                         maxLength={10}
                         className="w-full pl-12 pr-3.5 py-2.5 text-sm border border-[#D5E0DA] rounded-xl bg-[#F8FAF9] text-slate-800 placeholder-slate-400 font-mono transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-[#0E6037]/15 focus:border-[#0E6037] focus:bg-white hover:border-slate-300"
                       />
                     </div>
-                    <p className="text-[11px] text-slate-400">
-                      OTP valid for 5 minutes. Refresh request available every 3 to 5 minutes.
-                    </p>
                   </div>
 
                   <button

@@ -251,9 +251,6 @@ export function WeeklyReportsPage() {
               Weekly Reports &amp; Payment Summary
             </h1>
           </div>
-          <p className="text-xs text-[#696969] mt-1.5 ml-10">
-            Official reporting period: {bounds.displayRange} (Saturday through Friday)
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -401,7 +398,7 @@ export function WeeklyReportsPage() {
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search team or scope..."
+                  placeholder="Search weekly reports..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#014025]/20 focus:border-[#014025]"
@@ -880,7 +877,7 @@ export function WeeklyReportsPage() {
                   <input
                     type="text"
                     disabled={isSubmittingPayment}
-                    placeholder="e.g. UTR-20261028-0912 or Chq #4401"
+                    placeholder="Voucher or reference..."
                     value={voucherRef}
                     onChange={(e) => setVoucherRef(e.target.value)}
                     className="w-full border border-[#696969]/30 rounded-md px-3 py-1.5 text-xs text-[#014025]"
@@ -893,7 +890,7 @@ export function WeeklyReportsPage() {
                 <input
                   type="text"
                   disabled={isSubmittingPayment}
-                  placeholder="e.g. Settled via Lumia account"
+                  placeholder="Settlement notes..."
                   value={paymentNotes}
                   onChange={(e) => setPaymentNotes(e.target.value)}
                   className="w-full border border-[#696969]/30 rounded-md px-3 py-1.5 text-xs text-[#014025]"

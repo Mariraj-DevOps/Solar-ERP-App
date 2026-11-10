@@ -570,7 +570,7 @@ function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: n
                 </div>
               ) : (
                 <p className="mt-1.5 text-[11px] text-slate-500">
-                  Ensure phone GPS / Location is turned ON in Android settings. Tap <strong>Refresh GPS</strong> to capture coordinates.
+                  Turn on device GPS and tap <strong>Refresh GPS</strong>.
                 </p>
               )}
             </div>
@@ -599,10 +599,6 @@ function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: n
             height="180px"
             label="Site Attendance Area"
           />
-
-          <p className="text-[11px] text-slate-500">
-            Clicking <strong>Check In</strong> records your GPS location for <strong>{assignedTeam?.name || 'your assigned team'}</strong>.
-          </p>
         </div>
 
         {/* Alerts & Feedback */}
@@ -715,7 +711,7 @@ function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: n
             <span>Location Privacy Policy</span>
           </div>
           <p className="text-[11px] leading-relaxed text-slate-500">
-            Location coordinates are collected <strong>strictly upon your explicit request</strong> (Check In, Check Out, or Random Verification). Background tracking is <strong>never performed</strong>.
+            Coordinates are recorded only upon explicit action (check in/out or spot check). Continuous background tracking is never performed.
           </p>
         </div>
 

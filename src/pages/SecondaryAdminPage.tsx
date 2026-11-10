@@ -166,9 +166,6 @@ export function SecondaryAdminPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-[#014025] tracking-tight">
             Secondary Admin Permissions Matrix
           </h1>
-          <p className="text-xs sm:text-sm text-[#696969] mt-0.5">
-            Configure managed staff, approval scopes, and payment tracker access per Secondary Admin
-          </p>
         </div>
 
         <button
@@ -407,7 +404,7 @@ export function SecondaryAdminPage() {
                         type="text"
                         value={staffSearchQuery}
                         onChange={(e) => setStaffSearchQuery(e.target.value)}
-                        placeholder="Search staff by name, email, or site..."
+                        placeholder="Search staff..."
                         className="w-full pl-8 pr-8 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-[#456B5A] focus:outline-none bg-slate-50/50"
                       />
                       {staffSearchQuery && (

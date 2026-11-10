@@ -133,9 +133,6 @@ export function SettingsPage() {
               {isMasterAdmin ? 'Master Administrator' : 'Read Only'}
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-[#696969] mt-0.5">
-            Operational rules, Saturday–Friday calendar governance, calculation thresholds, and system health.
-          </p>
         </div>
 
         {isMasterAdmin && (
@@ -175,7 +172,6 @@ export function SettingsPage() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-[#014025]">Company &amp; Project Profile</h2>
-              <p className="text-[11px] text-[#696969]">Organization identifiers and reporting parameters</p>
             </div>
           </div>
 
@@ -257,7 +253,6 @@ export function SettingsPage() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-[#014025]">Time &amp; Overtime Rules</h2>
-              <p className="text-[11px] text-[#696969]">Standard working shift schedule and overtime thresholds</p>
             </div>
           </div>
 
@@ -355,7 +350,6 @@ export function SettingsPage() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-[#014025]">Database &amp; Engine Health</h2>
-              <p className="text-[11px] text-[#696969]">High-concurrency SQLite storage metrics</p>
             </div>
           </div>
 

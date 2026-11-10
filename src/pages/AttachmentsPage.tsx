@@ -137,9 +137,6 @@ export function AttachmentsPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-[#014025] tracking-tight">
             Document &amp; Attachments Library
           </h1>
-          <p className="text-xs sm:text-sm text-[#696969] mt-0.5">
-            Organized repository of attendance timesheets, payment vouchers, chits, and contractor bills
-          </p>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -200,7 +197,7 @@ export function AttachmentsPage() {
           <Search className="w-3.5 h-3.5 text-[#696969] absolute left-2.5 top-2.5" />
           <input
             type="text"
-            placeholder="Search documents or description..."
+            placeholder="Search documents..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 text-xs border border-[#696969]/30 rounded-lg text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#456B5A]"
@@ -344,7 +341,7 @@ export function AttachmentsPage() {
                 <label className="block text-xs font-semibold text-[#014025] mb-1">Description / Memo</label>
                 <input
                   type="text"
-                  placeholder="e.g. Scanned physical muster roll signed by site engineer"
+                  placeholder="Description or memo..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full border border-[#696969]/30 rounded p-1.5 text-xs text-[#014025]"

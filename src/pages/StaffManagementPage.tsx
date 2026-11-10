@@ -233,11 +233,6 @@ export function StaffManagementPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-[#014025] tracking-tight">
             {isMasterAdmin ? 'Staff & Account Management' : 'My Assigned Staff Accounts'}
           </h1>
-          <p className="text-xs sm:text-sm text-[#696969] mt-0.5">
-            {isMasterAdmin
-              ? 'Manage company accounts, designations, locations, roles, and credential security'
-              : 'View and update staff details for operations team members assigned to you'}
-          </p>
         </div>
 
         {isMasterAdmin && (
@@ -271,7 +266,7 @@ export function StaffManagementPage() {
           <div className="flex items-center justify-between border-b border-[#696969]/15 pb-3">
             <h2 className="font-bold text-sm text-[#014025] flex items-center space-x-2">
               <UserPlus className="w-4 h-4 text-[#456B5A]" />
-              <span>Provision New Employee or Administrator Account</span>
+              <span>Provision New Account</span>
             </h2>
             <button onClick={() => setShowAddForm(false)} className="text-[#696969] hover:text-[#014025]">
               <X className="w-4 h-4" />
@@ -287,7 +282,7 @@ export function StaffManagementPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Ramesh Kumar"
+                  placeholder="Full name"
                   value={newFullName}
                   onChange={(e) => setNewFullName(e.target.value)}
                   className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#456B5A]"
@@ -301,7 +296,7 @@ export function StaffManagementPage() {
                 <input
                   type="email"
                   required
-                  placeholder="ramesh@company.erp"
+                  placeholder="Email address"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#456B5A]"
@@ -328,7 +323,7 @@ export function StaffManagementPage() {
                 <label className="block text-xs font-semibold text-[#014025] mb-1">Designation / Staff Type</label>
                 <input
                   type="text"
-                  placeholder="e.g. Site Supervisor, Junior Engineer"
+                  placeholder="Designation"
                   value={newDesignation}
                   onChange={(e) => setNewDesignation(e.target.value)}
                   className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#456B5A]"
@@ -340,7 +335,7 @@ export function StaffManagementPage() {
                 <input
                   type="password"
                   required
-                  placeholder="At least 6 characters"
+                  placeholder="Password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#456B5A]"
@@ -352,7 +347,7 @@ export function StaffManagementPage() {
                   <label className="block text-xs font-semibold text-[#014025] mb-1">Assigned Office / Branch</label>
                   <input
                     type="text"
-                    placeholder="e.g. Head Office (Central)"
+                    placeholder="Location / branch"
                     value={newLocation}
                     onChange={(e) => setNewLocation(e.target.value)}
                     className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:outline-none focus:ring-1 focus:ring-[#456B5A]"
@@ -445,9 +440,6 @@ export function StaffManagementPage() {
                       ))}
                     </div>
                   </div>
-                  <p className="text-[11px] text-emerald-800 mt-1">
-                    Allowed GPS radius from worksite center for this staff member's mobile check-in & 30-min spot verification.
-                  </p>
                 </div>
               </div>
             )}
@@ -717,7 +709,7 @@ export function StaffManagementPage() {
                 <label className="block text-xs font-semibold text-[#014025] mb-1">Designation</label>
                 <input
                   type="text"
-                  placeholder="e.g. Site Supervisor"
+                  placeholder="Designation"
                   value={editForm.designation}
                   onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
                   className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:ring-1 focus:ring-[#456B5A]"
@@ -764,7 +756,7 @@ export function StaffManagementPage() {
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Lumia Infrastructure Phase 2"
+                      placeholder="Location name"
                       value={editForm.assignedLocation}
                       onChange={(e) => setEditForm({ ...editForm, assignedLocation: e.target.value })}
                       className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs text-[#014025] focus:ring-1 focus:ring-[#456B5A] bg-white"
@@ -807,9 +799,6 @@ export function StaffManagementPage() {
                         ))}
                       </div>
                     </div>
-                    <p className="text-[11px] text-emerald-800 mt-1">
-                      Allowed distance from worksite center for mobile GPS check-in and 30-min spot checks.
-                    </p>
                   </div>
                 </div>
               ) : (
@@ -829,7 +818,7 @@ export function StaffManagementPage() {
                     {editingStaff.assigned_worksite_name || editingStaff.assigned_location || 'General Site'}
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    Geofence Range: <span className="font-semibold text-emerald-700 font-mono">{editingStaff.allowed_radius_meters || 150}m</span> (Only Master Admin can modify location and range).
+                    Geofence Range: <span className="font-semibold text-emerald-700 font-mono">{editingStaff.allowed_radius_meters || 150}m</span>
                   </p>
                 </div>
               )}
@@ -900,7 +889,7 @@ export function StaffManagementPage() {
                   type="text"
                   value={spotCheckNotes}
                   onChange={(e) => setSpotCheckNotes(e.target.value)}
-                  placeholder="e.g. Afternoon shift field presence check"
+                  placeholder="Reason for spot check..."
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-[#0E6037] focus:outline-none"
                 />
               </div>

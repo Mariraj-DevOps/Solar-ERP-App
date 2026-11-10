@@ -203,11 +203,6 @@ export function PaymentTrackerPage() {
                 : `Assigned Admin • ${user?.assignedLocation || 'Branch Office'}`}
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-[#696969] mt-0.5">
-            {isMasterAdmin
-              ? 'Consolidated company payment tracker categorised by office location, secondary admin, and staff.'
-              : 'Track team weekly payouts, settlements, and vouchers for your assigned staff.'}
-          </p>
         </div>
         <div className="flex items-center space-x-2">
           {isMasterAdmin && offices.length > 0 && (
@@ -656,7 +651,7 @@ export function PaymentTrackerPage() {
                   <input
                     type="text"
                     disabled={isSubmitting}
-                    placeholder="e.g. UTR-20261028-0912 or Chq #4401"
+                    placeholder="Voucher or reference..."
                     value={voucherRef}
                     onChange={(e) => setVoucherRef(e.target.value)}
                     className="w-full border border-[#696969]/30 rounded-md px-3 py-1.5 text-xs text-[#014025]"
@@ -669,7 +664,7 @@ export function PaymentTrackerPage() {
                 <input
                   type="text"
                   disabled={isSubmitting}
-                  placeholder="e.g. Settled via Lumia account by Master Admin"
+                  placeholder="Settlement notes..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full border border-[#696969]/30 rounded-md px-3 py-1.5 text-xs text-[#014025]"

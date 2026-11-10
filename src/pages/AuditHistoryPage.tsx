@@ -53,9 +53,6 @@ export function AuditHistoryPage() {
               System Audit History &amp; Override Trail
             </h1>
           </div>
-          <p className="text-xs text-[#696969] mt-1.5 ml-10">
-            Immutable log of all financial modifications, staff rate overrides, and operational merges
-          </p>
         </div>
 
         <div className="w-56">
@@ -83,7 +80,7 @@ export function AuditHistoryPage() {
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5 pointer-events-none transition-colors duration-200 group-focus-within:text-[#456B5A]" />
           <input
             type="text"
-            placeholder="Search by actor, action, reason, record ID..."
+            placeholder="Search audit trail..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50/50 text-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#456B5A]/20 focus:border-[#456B5A] focus:bg-white hover:border-gray-300"

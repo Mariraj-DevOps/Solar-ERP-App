@@ -192,7 +192,7 @@ export function MergeModal({ isOpen, onClose, onSuccess, weekStartDate }: MergeM
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Combined Vishnu Teams (Civil + Painter)"
+                  placeholder="Group name"
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
                   className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"
@@ -277,7 +277,7 @@ export function MergeModal({ isOpen, onClose, onSuccess, weekStartDate }: MergeM
                 <label className="block text-xs font-semibold text-[#014025] mb-1">Reason for Merge</label>
                 <input
                   type="text"
-                  placeholder="e.g. Consolidated operational attendance merge"
+                  placeholder="Reason for merge..."
                   value={mergeReason}
                   onChange={(e) => setMergeReason(e.target.value)}
                   className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"

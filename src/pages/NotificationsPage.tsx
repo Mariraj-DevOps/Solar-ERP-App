@@ -121,9 +121,6 @@ export function NotificationsPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-[#014025] tracking-tight">
               In-App Notifications
             </h1>
-            <p className="text-xs sm:text-sm text-[#696969] mt-0.5">
-              Persistent updates on attendance reviews, approvals, admin modifications, and payment settlements
-            </p>
           </div>
         </div>
 

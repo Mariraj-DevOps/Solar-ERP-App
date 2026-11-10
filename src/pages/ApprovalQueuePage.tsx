@@ -150,9 +150,6 @@ export function ApprovalQueuePage() {
           <h1 className="text-xl sm:text-2xl font-bold text-[#014025] tracking-tight">
             Administrative Approval Queue
           </h1>
-          <p className="text-xs sm:text-sm text-[#696969] mt-0.5">
-            Review and authorize labour attendance submissions, proposed revisions, and staff geofence site location change requests
-          </p>
         </div>
         <button
           onClick={loadQueue}
@@ -637,7 +634,7 @@ export function ApprovalQueuePage() {
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="e.g. Mismatch in mason count with site log / Overtime not pre-approved..."
+                  placeholder="Reason for rejection..."
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   className="w-full border border-[#696969]/30 rounded p-2 text-xs text-[#014025] focus:outline-none focus:ring-1 focus:ring-red-500"

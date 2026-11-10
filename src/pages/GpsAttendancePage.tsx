@@ -239,9 +239,6 @@ export function GpsAttendancePage() {
             <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-[#0E6037] shrink-0" />
             <span>GPS Geofenced Attendance</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Review individual labourer GPS check-ins, resolve exceptions, and dispatch spot verifications.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -328,7 +325,7 @@ export function GpsAttendancePage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search worker, site, or date..."
+                placeholder="Search records..."
                 className="w-full pl-9 pr-4 py-1.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl"
               />
             </div>
@@ -991,7 +988,7 @@ export function GpsAttendancePage() {
                   type="text"
                   value={verifNotes}
                   onChange={(e) => setVerifNotes(e.target.value)}
-                  placeholder="e.g. Afternoon shift spot verification"
+                  placeholder="Spot check notes..."
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl"
                 />
               </div>
@@ -1078,7 +1075,7 @@ export function GpsAttendancePage() {
                   rows={3}
                   value={overrideReason}
                   onChange={(e) => setOverrideReason(e.target.value)}
-                  placeholder="e.g. Worker was physically present at sub-station boundary where cellular GPS drifted 25m outside fence."
+                  placeholder="Reason for approval or rejection..."
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl"
                 />
               </div>

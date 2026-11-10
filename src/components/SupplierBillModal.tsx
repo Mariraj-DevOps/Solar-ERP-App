@@ -98,7 +98,7 @@ export function SupplierBillModal({
             <input
               type="text"
               required
-              placeholder="e.g. Pankaj AAC Block Works, Balaji Sand Suppliers"
+              placeholder="Contractor / supplier name"
               value={supplierName}
               onChange={(e) => setSupplierName(e.target.value)}
               className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"
@@ -112,7 +112,7 @@ export function SupplierBillModal({
             <input
               type="text"
               required
-              placeholder="e.g. PCC / AAC blocks supply and laying work"
+              placeholder="Work description"
               value={workDescription}
               onChange={(e) => setWorkDescription(e.target.value)}
               className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"
@@ -127,7 +127,7 @@ export function SupplierBillModal({
                 step="any"
                 min="0"
                 required
-                placeholder="e.g. 284800"
+                placeholder="Gross ₹"
                 value={grossAmount}
                 onChange={(e) => setGrossAmount(e.target.value)}
                 className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs font-mono font-bold bg-white text-[#014025]"
@@ -140,7 +140,7 @@ export function SupplierBillModal({
                 type="number"
                 step="any"
                 min="0"
-                placeholder="e.g. 210000"
+                placeholder="Advance ₹"
                 value={advancePaid}
                 onChange={(e) => setAdvancePaid(e.target.value)}
                 className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs font-mono bg-white text-[#014025]"
@@ -165,7 +165,7 @@ export function SupplierBillModal({
             <label className="block text-xs font-semibold text-[#014025] mb-1">Remarks / Reference</label>
             <input
               type="text"
-              placeholder="e.g. Invoice #2026/PCC-88, payment approved"
+              placeholder="Remarks / invoice ref"
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"

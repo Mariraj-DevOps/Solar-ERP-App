@@ -176,7 +176,7 @@ export function AdjustmentModal({
                   step="0.01"
                   min="0"
                   max="100"
-                  placeholder="e.g. 6.25"
+                  placeholder="Rate %"
                   value={percentage}
                   onChange={(e) => setPercentage(e.target.value)}
                   className="w-full border border-[#696969]/25 rounded px-2 py-1 text-xs font-mono font-bold bg-white text-[#014025]"
@@ -189,7 +189,7 @@ export function AdjustmentModal({
                   type="number"
                   step="any"
                   min="0"
-                  placeholder="e.g. 17100"
+                  placeholder="Base ₹"
                   value={baseAmount}
                   onChange={(e) => setBaseAmount(e.target.value)}
                   className="w-full border border-[#696969]/25 rounded px-2 py-1 text-xs font-mono font-bold bg-white text-[#014025]"
@@ -203,7 +203,7 @@ export function AdjustmentModal({
             <input
               type="text"
               required
-              placeholder="e.g. Mid-week cash advance, 6.25% Retention deduction, Tool deposit"
+              placeholder="Description / reason"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"

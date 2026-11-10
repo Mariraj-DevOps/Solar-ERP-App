@@ -209,20 +209,17 @@ export function WorksitesPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#E8DFD0]">
         <div>
-          <h1 className="text-lg sm:text-2xl font-bold text-slate-900 flex items-center space-x-2 tracking-tight">
-            <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-[#0E6037] shrink-0" />
-            <span>Worksites &amp; GPS Geofence</span>
+          <h1 className="text-lg sm:text-2xl font-bold text-[#0B3522] flex items-center space-x-2 tracking-tight">
+            <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-[#0B3522] shrink-0" />
+            <span>Worksites &amp; Geofences</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Configure project coordinates, allowed check-in radius (metres), and GPS accuracy threshold.
-          </p>
         </div>
 
         <button
           onClick={openCreateModal}
-          className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2 sm:py-2.5 bg-[#0E6037] hover:bg-[#0B4D2C] text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs transition-colors cursor-pointer"
+          className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2 sm:py-2.5 bg-[#0B3522] hover:bg-[#072417] text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs transition-colors cursor-pointer"
         >
           <Plus className="w-4 h-4 shrink-0" />
           <span>{isAdminAny ? 'Add Worksite' : 'Request Worksite'}</span>
@@ -230,15 +227,15 @@ export function WorksitesPage() {
       </div>
 
       {/* Filter / Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-2xs">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-[#FAF7F0] p-2.5 sm:p-3 rounded-2xl border border-[#E8DFD0] shadow-2xs">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by worksite name, project, or address..."
-            className="w-full pl-9 pr-4 py-1.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037]"
+            placeholder="Search worksites..."
+            className="w-full pl-9 pr-4 py-1.5 text-xs sm:text-sm bg-white/80 border border-[#E8DFD0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0B3522]/20 focus:border-[#0B3522]"
           />
         </div>
 
@@ -293,26 +290,11 @@ export function WorksitesPage() {
 
                 <p className="text-xs text-slate-500 line-clamp-2">{ws.address || 'No street address specified'}</p>
 
-                {/* Coordinates & Geofence Badges */}
-                <div className="p-3 bg-slate-50 rounded-xl space-y-1.5 border border-slate-100 font-mono text-xs">
-                  <div className="flex justify-between text-slate-600">
-                    <span>GPS Coordinates:</span>
-                    <span className="font-semibold text-slate-800">
-                      {ws.latitude.toFixed(4)}, {ws.longitude.toFixed(4)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Allowed Radius:</span>
-                    <span className="font-bold text-[#0E6037]">{ws.allowed_radius_meters}m</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Staff Radius:</span>
-                    <span className="font-bold text-emerald-700">{ws.staff_radius_meters ?? ws.allowed_radius_meters}m</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Max Accuracy:</span>
-                    <span className="font-bold text-slate-800">{ws.accuracy_threshold_meters}m</span>
-                  </div>
+                <div className="flex items-center gap-2 text-xs font-mono text-[#526659] pt-1">
+                  <MapPin className="w-3.5 h-3.5 text-[#0B3522] shrink-0" />
+                  <span>{ws.latitude.toFixed(4)}, {ws.longitude.toFixed(4)}</span>
+                  <span>•</span>
+                  <span className="font-bold text-[#0B3522]">{ws.allowed_radius_meters}m</span>
                 </div>
 
                 {/* Office Location Badge */}
@@ -415,14 +397,9 @@ export function WorksitesPage() {
             </div>
 
             {isStaff && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1">
-                <div className="flex items-center space-x-1.5 text-amber-900 font-bold text-xs">
-                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Admin Approval Required</span>
-                </div>
-                <p className="text-xs text-amber-800 leading-relaxed">
-                  As an operations staff member, your changes to worksites and GPS geofence perimeters will not take effect immediately. Submitting will send an approval request to your assigned Administrator (<strong>{user?.assignedAdmin?.fullName || 'Assigned Administrator'}</strong>).
-                </p>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center space-x-2 text-xs text-amber-900 font-medium">
+                <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Admin approval required for worksite changes.</span>
               </div>
             )}
 
@@ -441,7 +418,7 @@ export function WorksitesPage() {
                   required
                   value={modalForm.name}
                   onChange={(e) => setModalForm({ ...modalForm, name: e.target.value })}
-                  placeholder="e.g. Lumia Building Main Tower"
+                  placeholder="Worksite name"
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037]"
                 />
               </div>
@@ -453,7 +430,7 @@ export function WorksitesPage() {
                   required
                   value={modalForm.projectName}
                   onChange={(e) => setModalForm({ ...modalForm, projectName: e.target.value })}
-                  placeholder="e.g. Lumia Infrastructure Phase 2"
+                  placeholder="Project name"
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037]"
                 />
               </div>
@@ -464,7 +441,7 @@ export function WorksitesPage() {
                   type="text"
                   value={modalForm.address}
                   onChange={(e) => setModalForm({ ...modalForm, address: e.target.value })}
-                  placeholder="e.g. 42, Brigade Road, Bengaluru"
+                  placeholder="Street address"
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037]"
                 />
               </div>
@@ -551,10 +528,10 @@ export function WorksitesPage() {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs font-semibold text-slate-700">
-                        Staff Check-In Radius (metres) *
+                        Staff Radius (m) *
                       </label>
                       <span className="text-xs font-bold text-[#0E6037] font-mono">
-                        {modalForm.staffRadiusMeters || modalForm.allowedRadiusMeters} metres
+                        {modalForm.staffRadiusMeters || modalForm.allowedRadiusMeters}m
                       </span>
                     </div>
                     <input
@@ -569,11 +546,8 @@ export function WorksitesPage() {
                         })
                       }
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037] text-xs sm:text-sm"
-                      placeholder="e.g. 150"
+                      placeholder="150"
                     />
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      Allowed GPS boundary radius within which assigned staff members can record daily attendance.
-                    </p>
                   </div>
 
                   <div>
@@ -656,7 +630,7 @@ export function WorksitesPage() {
                     rows={2}
                     value={modalForm.reason}
                     onChange={(e) => setModalForm({ ...modalForm, reason: e.target.value })}
-                    placeholder="Provide a mandatory reason for this worksite change request for admin review..."
+                    placeholder="Reason for change..."
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037] text-xs sm:text-sm"
                   />
                 </div>

@@ -707,7 +707,7 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-black text-sm text-[#0B3522]">Day-by-Day Attendance &amp; Amount Breakdown</h2>
-            <p className="text-xs text-[#526659] mt-0.5">Saturday to Friday distribution for reporting week {weekBounds.displayRange}</p>
+            <p className="text-xs text-[#526659] mt-0.5">Reporting week {weekBounds.displayRange}</p>
           </div>
           <button
             onClick={() => onNavigate && onNavigate('weekly-reports', { weekStart: currentWeekStart })}

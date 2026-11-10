@@ -99,9 +99,6 @@ export function AdditionalChargesPage() {
               Additional Charges &amp; Expenses
             </h1>
           </div>
-          <p className="text-xs text-[#696969] mt-1.5 ml-10">
-            Machine rentals, materials, steel blades, transport trips, and custom site expenses
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -176,7 +173,7 @@ export function AdditionalChargesPage() {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search description, notes..."
+              placeholder="Search charges..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#014025]/20 focus:border-[#014025]"

@@ -289,11 +289,6 @@ export function TeamsPage() {
               <h1 className="text-lg sm:text-xl font-bold text-slate-800 tracking-tight">
                 {activeTab === 'teams' ? 'Teams & Work Categories' : 'Labour Categories & Standard Rates'}
               </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {activeTab === 'teams'
-                  ? 'Operational team templates, work scopes, and default role configurations'
-                  : 'Manage master worker trades, wage rates (Mason, Helper, Painter, etc.), and billing classifications'}
-              </p>
             </div>
           </div>
         </div>
@@ -527,7 +522,7 @@ export function TeamsPage() {
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none transition-colors duration-200 group-focus-within:text-[#0E6037]" />
                 <input
                   type="text"
-                  placeholder="Search teams, scope, project..."
+                  placeholder="Search teams..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl bg-white text-slate-800 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037] hover:border-slate-300"
@@ -752,7 +747,7 @@ export function TeamsPage() {
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search categories by name, code, or rate..."
+                placeholder="Search categories..."
                 value={catSearch}
                 onChange={(e) => setCatSearch(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl bg-white text-slate-800 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037] hover:border-slate-300"
@@ -894,7 +889,7 @@ export function TeamsPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Mason, Helper, Painter, Barbender, Welder"
+                  placeholder="Category name"
                   value={catName}
                   onChange={(e) => {
                     setCatName(e.target.value);
@@ -914,7 +909,7 @@ export function TeamsPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. MASON"
+                    placeholder="Trade code"
                     value={catCode}
                     onChange={(e) => setCatCode(e.target.value.toUpperCase())}
                     className="w-full px-3 py-2 font-mono text-xs border border-slate-200 rounded-xl bg-white text-slate-800 uppercase focus:outline-none focus:ring-2 focus:ring-[#0E6037]/20 focus:border-[#0E6037]"

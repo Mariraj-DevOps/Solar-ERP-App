@@ -509,9 +509,6 @@ export function DailyAttendancePage() {
           <h1 className="text-xl sm:text-2xl font-bold text-[#014025] tracking-tight">
             Daily Attendance &amp; GPS Geofence Verification
           </h1>
-          <p className="text-xs sm:text-sm text-[#696969] mt-0.5">
-            Muster roll entries, self-marked labourer GPS perimeters, and 30-minute spot check requests
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -1233,7 +1230,7 @@ export function DailyAttendancePage() {
                   type="text"
                   value={spotNotes}
                   onChange={(e) => setSpotNotes(e.target.value)}
-                  placeholder="e.g. Afternoon attendance verification"
+                  placeholder="Spot check notes..."
                   className="w-full border border-gray-300 rounded-lg p-2 text-xs"
                 />
               </div>

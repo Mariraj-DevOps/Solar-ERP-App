@@ -547,7 +547,7 @@ export function MapLocationPicker({
                         handleSearch();
                       }
                     }}
-                    placeholder="Search place, site address, or landmark on map..."
+                    placeholder="Search location..."
                     className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#014025] focus:border-[#014025]"
                   />
                 </div>

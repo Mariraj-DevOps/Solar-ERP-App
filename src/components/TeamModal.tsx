@@ -261,7 +261,7 @@ export function TeamModal({ isOpen, onClose, onSuccess, editTeam }: TeamModalPro
             <input
               type="text"
               required
-              placeholder="e.g. Centring Murugan, Heeralal / Lumia Building, Ali Carpenter"
+              placeholder="Team name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"
@@ -276,7 +276,7 @@ export function TeamModal({ isOpen, onClose, onSuccess, editTeam }: TeamModalPro
               <input
                 type="text"
                 required
-                placeholder="e.g. Civil, Painting, Centring, Cleaning"
+                placeholder="Work category"
                 value={workCategory}
                 onChange={(e) => setWorkCategory(e.target.value)}
                 className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"
@@ -289,7 +289,7 @@ export function TeamModal({ isOpen, onClose, onSuccess, editTeam }: TeamModalPro
               </label>
               <input
                 type="text"
-                placeholder="e.g. Main Tower, Block A"
+                placeholder="Project / location"
                 value={locationProject}
                 onChange={(e) => setLocationProject(e.target.value)}
                 className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"
@@ -301,7 +301,7 @@ export function TeamModal({ isOpen, onClose, onSuccess, editTeam }: TeamModalPro
             <label className="block text-xs font-semibold text-[#014025] mb-1">Notes / Description</label>
             <textarea
               rows={2}
-              placeholder="Optional notes or contractual conditions..."
+              placeholder="Notes..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="w-full border border-[#696969]/30 rounded-md px-3 py-2 text-xs bg-white text-[#014025] focus:ring-1 focus:ring-[#456B5A] focus:outline-none"
@@ -385,7 +385,7 @@ export function TeamModal({ isOpen, onClose, onSuccess, editTeam }: TeamModalPro
                     type="text"
                     value={locationChangeReason}
                     onChange={(e) => setLocationChangeReason(e.target.value)}
-                    placeholder={editTeam ? 'e.g. Project expanded to Block C, work shifted 250m north' : 'e.g. Initial worksite perimeter setup'}
+                    placeholder="Reason for location change..."
                     className="w-full px-3 py-1.5 text-xs bg-white border border-amber-300 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-500"
                   />
                 </div>
