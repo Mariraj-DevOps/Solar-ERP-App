@@ -409,7 +409,10 @@ function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: n
   return (
     <div className="min-h-screen bg-[#EEE5D4] flex flex-col justify-between max-w-md mx-auto shadow-2xl relative">
       {/* Top Mobile Header */}
-      <header className="bg-gradient-to-br from-[#082417] via-[#0E3D26] to-[#164D32] text-white px-4 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-md">
+      <header
+        className="bg-gradient-to-b from-[#082417] via-[#0D3823] to-[#14472F] text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-md"
+        style={{ paddingTop: 'max(10px, env(safe-area-inset-top))' }}
+      >
         <div className="flex items-center space-x-2.5">
           <div className="w-10 h-10 bg-white keep-white rounded-2xl p-1.5 flex items-center justify-center shadow-xs border border-white/20">
             <img src={COMPANY_LOGO_URL} alt="Logo" className="w-full h-full object-contain" />

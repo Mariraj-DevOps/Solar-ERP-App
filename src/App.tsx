@@ -29,7 +29,26 @@ function ERPContent() {
   const { user, isLoading, isAdminAny, isLabourer } = useAuth();
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [navParams, setNavParams] = useState<any>({});
+  const [isScrolled, setIsScrolled] = useState(false);
   const tabHistoryRef = useRef<NavTab[]>(['dashboard']);
+
+  // Monitor scroll for mobile dynamic header contraction & duo blur fading
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setIsScrolled(window.scrollY > 15);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    setIsScrolled(window.scrollY > 15);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleNavigate = (tab: NavTab, params?: any, pushHistory = true) => {
     if (params) setNavParams(params);
@@ -140,18 +159,47 @@ function ERPContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#EEE5D4] flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[#EEE5D4] flex flex-col md:flex-row relative">
       <Sidebar currentTab={currentTab} onTabChange={(tab) => handleNavigate(tab, undefined, true)} />
 
       {/* Mobile-only wavy top header bar with logo & back button matching Image 1 */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-30 shadow-md">
+      <header className="md:hidden fixed top-0 left-0 right-0 z-30 bg-[#082417] shadow-md transition-all duration-300">
         <TopWaveHeader
           title="Solar Designs Pvt Ltd"
           subtitle="Labour Attendance ERP"
           showBack={currentTab !== 'dashboard'}
           onBack={handleBack}
+          isScrolled={isScrolled}
         />
       </header>
+
+      {/* Top Duo Blurry Fade (iPhone-style dynamic blur fade below top header) */}
+      <div
+        className={`md:hidden fixed left-0 right-0 z-20 pointer-events-none transition-all duration-300 ease-in-out ${
+          isScrolled
+            ? (currentTab !== 'dashboard' ? 'top-[44px] h-9 opacity-100' : 'top-[26px] h-8 opacity-100')
+            : 'top-[78px] h-10 opacity-75'
+        }`}
+        style={{
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          background: 'linear-gradient(to bottom, rgba(238, 229, 212, 0.95) 0%, rgba(238, 229, 212, 0.4) 60%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, black 25%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 25%, transparent 100%)',
+        }}
+      />
+
+      {/* Bottom Duo Blurry Fade (iPhone-style dynamic blur fade above bottom nav) */}
+      <div
+        className="md:hidden fixed bottom-0 left-0 right-0 z-35 pointer-events-none h-24 sm:h-28"
+        style={{
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          background: 'linear-gradient(to top, rgba(238, 229, 212, 0.98) 0%, rgba(238, 229, 212, 0.75) 45%, transparent 100%)',
+          maskImage: 'linear-gradient(to top, black 40%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to top, black 40%, transparent 100%)',
+        }}
+      />
 
       <main className="flex-1 min-w-0 p-3 sm:p-6 lg:p-8 pt-24 md:pt-4 pb-28 md:pb-12">
         {currentTab === 'dashboard' && <DashboardPage onNavigate={handleNavigate} />}
