@@ -19,6 +19,7 @@ import {
   Navigation,
   MapPin,
   Compass,
+  BarChart3,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { formatINR, round2 } from '../lib/calculations';
@@ -29,6 +30,7 @@ import {
   getDayName,
 } from '../lib/dateUtils';
 import { WeekNavigator } from '../components/WeekNavigator';
+import { MasterAdminAnalytics } from '../components/MasterAdminAnalytics';
 import { useAuth } from '../context/AuthContext';
 
 function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -417,54 +419,123 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
         </div>
       )}
 
-      {/* Action Shortcuts Bar matching Image 1 */}
-      <div className="bg-[#FAF7F0] p-3.5 sm:p-4 rounded-3xl border border-[#E8DFD0] shadow-xs flex flex-wrap items-center gap-2.5 text-xs">
-        <button
-          onClick={() => onNavigate && onNavigate('attendance', { date: todayKolkata })}
-          className="flex items-center space-x-1.5 px-4 py-2.5 bg-[#0B3522] hover:bg-[#072417] text-white rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Add Attendance</span>
-        </button>
-
-        {isAdminAny && (
+      {/* Action Shortcuts Bar */}
+      <div className="bg-[#FAF7F0] p-3.5 sm:p-4 rounded-3xl border border-[#E8DFD0] shadow-xs">
+        {/* Mobile View: Exactly 4 shortcuts in a 2x2 grid to fit the box perfectly */}
+        <div className="grid grid-cols-2 gap-2.5 sm:hidden text-xs">
           <button
-            onClick={() => onNavigate && onNavigate('approvals')}
-            className="flex items-center space-x-1.5 px-4 py-2.5 bg-[#DCEAE2] hover:bg-[#CFE2D7] text-[#0B3522] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer relative"
+            onClick={() => onNavigate && onNavigate('attendance', { date: todayKolkata })}
+            className="flex items-center justify-center space-x-1.5 px-3 py-3 bg-[#2D6043] hover:bg-[#205035] text-white rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer text-center"
           >
-            <Clock className="w-4 h-4 text-[#0B3522]" />
-            <span>Review Queue</span>
-            {pendingApprovals.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 bg-[#0B3522] text-white font-bold rounded-full text-[10px]">
-                {pendingApprovals.length}
-              </span>
-            )}
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Add Attendance</span>
           </button>
-        )}
 
-        <button
-          onClick={() => onNavigate && onNavigate('weekly-reports', { weekStart: currentWeekStart })}
-          className="flex items-center space-x-1.5 px-4 py-2.5 bg-white/80 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
-        >
-          <span>Weekly Report</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+          {isAdminAny ? (
+            <button
+              onClick={() => onNavigate && onNavigate('approvals')}
+              className="flex items-center justify-center space-x-1.5 px-3 py-3 bg-[#DCEAE2] hover:bg-[#CFE2D7] text-[#0B3522] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer relative text-center"
+            >
+              <Clock className="w-4 h-4 text-[#0B3522]" />
+              <span>Review Queue</span>
+              {pendingApprovals.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 bg-[#0B3522] text-white font-bold rounded-full text-[10px]">
+                  {pendingApprovals.length}
+                </span>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={() => onNavigate && onNavigate('my-reports')}
+              className="flex items-center justify-center space-x-1.5 px-3 py-3 bg-[#DCEAE2] hover:bg-[#CFE2D7] text-[#0B3522] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer text-center"
+            >
+              <Users className="w-4 h-4 text-[#0B3522]" />
+              <span>My Workspace</span>
+            </button>
+          )}
 
-        <button
-          onClick={() => onNavigate && onNavigate('payments', { weekStart: currentWeekStart })}
-          className="flex items-center space-x-1.5 px-4 py-2.5 bg-white/80 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
-        >
-          <span>Payment Status</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+          <button
+            onClick={() => onNavigate && onNavigate('weekly-reports', { weekStart: currentWeekStart })}
+            className="flex items-center justify-center space-x-1.5 px-3 py-3 bg-white/90 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer text-center"
+          >
+            <span>Weekly Report</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
 
-        <button
-          onClick={() => onNavigate && onNavigate('attachments')}
-          className="flex items-center space-x-1.5 px-4 py-2.5 bg-white/80 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
-        >
-          <Paperclip className="w-4 h-4 text-[#0B3522]" />
-          <span>Attachments</span>
-        </button>
+          <button
+            onClick={() => onNavigate && onNavigate('payments', { weekStart: currentWeekStart })}
+            className="flex items-center justify-center space-x-1.5 px-3 py-3 bg-white/90 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer text-center"
+          >
+            <span>Payment Status</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Tablet & Desktop View: 6 shortcuts filling the row completely */}
+        <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
+          <button
+            onClick={() => onNavigate && onNavigate('attendance', { date: todayKolkata })}
+            className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 bg-[#2D6043] hover:bg-[#205035] text-white rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Add Attendance</span>
+          </button>
+
+          {isAdminAny ? (
+            <button
+              onClick={() => onNavigate && onNavigate('approvals')}
+              className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 bg-[#DCEAE2] hover:bg-[#CFE2D7] text-[#0B3522] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer relative"
+            >
+              <Clock className="w-4 h-4 text-[#0B3522]" />
+              <span>Review Queue</span>
+              {pendingApprovals.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 bg-[#0B3522] text-white font-bold rounded-full text-[10px]">
+                  {pendingApprovals.length}
+                </span>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={() => onNavigate && onNavigate('my-reports')}
+              className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 bg-[#DCEAE2] hover:bg-[#CFE2D7] text-[#0B3522] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
+            >
+              <Users className="w-4 h-4 text-[#0B3522]" />
+              <span>My Workspace</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => onNavigate && onNavigate('weekly-reports', { weekStart: currentWeekStart })}
+            className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 bg-white/90 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
+          >
+            <span>Weekly Report</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => onNavigate && onNavigate('payments', { weekStart: currentWeekStart })}
+            className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 bg-white/90 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
+          >
+            <span>Payment Status</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => onNavigate && onNavigate('attachments')}
+            className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 bg-white/90 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
+          >
+            <Paperclip className="w-4 h-4 text-[#0B3522]" />
+            <span>Attachments</span>
+          </button>
+
+          <button
+            onClick={() => onNavigate && onNavigate('monthly-reports')}
+            className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 bg-white/90 hover:bg-white text-[#0B3522] border border-[#E2D8C6] rounded-2xl font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
+          >
+            <BarChart3 className="w-4 h-4 text-[#0B3522]" />
+            <span>Monthly Reports</span>
+          </button>
+        </div>
       </div>
 
       {/* 30-Minute Random Spot Verification Alert Banner (Staff Only - Dispatched to Current User) */}
@@ -701,6 +772,16 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
           <div className="text-xs text-amber-900/80 mt-1 font-medium">Pending payment disbursement</div>
         </div>
       </div>
+
+      {/* Master Admin Analytics Component: Split Charts for Attendance & Payments with Weekly/Monthly toggle */}
+      {isMasterAdmin && (
+        <MasterAdminAnalytics
+          currentWeekStart={currentWeekStart}
+          weeklyReport={weeklyReport}
+          dayBreakdown={dayBreakdown}
+          onNavigate={onNavigate}
+        />
+      )}
 
       {/* Day by Day Payment & Worker Summary for the Week */}
       <div className="bg-[#FAF7F0] rounded-3xl border border-[#E8DFD0] shadow-xs p-5 space-y-4">

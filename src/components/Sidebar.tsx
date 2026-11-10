@@ -240,12 +240,12 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
     <>
       {/* 1. Desktop & Tablet Sidebar */}
       <aside
-        className={`hidden md:flex flex-col h-screen sticky top-0 bg-[#0B3522] border-r border-[#072517] text-white/90 shrink-0 select-none z-30 transition-[width] duration-300 ease-in-out overflow-hidden ${
+        className={`hidden md:flex flex-col h-screen sticky top-0 bg-gradient-to-b from-[#184F34] via-[#113C27] to-[#0A2E1D] border-r border-[#1B5639]/40 text-white/90 shrink-0 select-none z-30 transition-[width] duration-300 ease-in-out overflow-hidden shadow-xl ${
           isCollapsed ? 'w-[76px]' : 'w-64'
         }`}
       >
         {/* Brand Header */}
-        <div className="p-3.5 border-b border-[#14472F] flex items-center justify-between relative min-h-[57px]">
+        <div className="p-3.5 border-b border-white/10 flex items-center justify-between relative min-h-[57px] bg-white/[0.03]">
           {!isCollapsed ? (
             <div className="flex items-center space-x-2.5 overflow-hidden">
               <div
@@ -300,15 +300,15 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
 
         {/* User Card (expanded only) */}
         {user && !isCollapsed && (
-          <div className="mx-3 my-2.5 rounded-2xl bg-[#082819] border border-white/10 flex items-center px-3 py-2.5 transition-all">
+          <div className="mx-3 my-2.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-xs flex items-center px-3 py-2.5 transition-all shadow-xs">
             <div className="flex items-center space-x-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-[#184F34] border border-white/20 flex items-center justify-center text-white shrink-0 font-bold text-xs shadow-xs">
+              <div className="w-8 h-8 rounded-full bg-[#2D6043] border border-white/25 flex items-center justify-center text-white shrink-0 font-bold text-xs shadow-xs">
                 {user.fullName?.charAt(0) || 'U'}
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-white truncate">{user.fullName}</div>
-                <div className="text-[10px] text-emerald-300/80 flex items-center space-x-1.5 mt-0.5">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <div className="text-[10px] text-emerald-200/90 flex items-center space-x-1.5 mt-0.5 font-medium">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-300" />
                   <span className="capitalize truncate">
                     {user.role === 'master_admin'
                       ? 'Master Admin'
@@ -340,7 +340,7 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
                 {!isCollapsed && (
                   <button
                     onClick={() => toggleCategory(category.id)}
-                    className="w-full flex items-center justify-between px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider text-emerald-200/60 hover:text-white transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-between px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider text-emerald-200/75 hover:text-white transition-colors cursor-pointer"
                   >
                     <span>{category.name}</span>
                     <span
@@ -364,7 +364,7 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
                           className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer relative z-10 ${
                             isActive
                               ? 'text-white font-semibold'
-                              : 'text-white/80 hover:text-white hover:bg-white/10'
+                              : 'text-white/85 hover:text-white hover:bg-white/12'
                           } ${isCollapsed ? 'justify-center' : ''}`}
                         >
                           {isActive && (
@@ -376,12 +376,12 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
                                 damping: 28,
                                 bounce: 0.3,
                               }}
-                              className="absolute inset-0 rounded-xl bg-[#184F34] ring-1 ring-white/15 shadow-sm z-0"
+                              className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#2D6043] to-[#205035] ring-1 ring-white/20 shadow-md z-0"
                             />
                           )}
 
                           <div className="flex items-center space-x-2.5 min-w-0 relative z-10">
-                            <span className={isActive ? 'text-white' : 'text-emerald-200/80'}>
+                            <span className={isActive ? 'text-white' : 'text-emerald-200/90'}>
                               {item.icon}
                             </span>
                             {!isCollapsed && (
@@ -419,10 +419,10 @@ export function Sidebar({ currentTab, onTabChange, onCollapsedChange }: SidebarP
         </nav>
 
         {/* Footer Logout */}
-        <div className="p-3 border-t border-[#14472F]">
+        <div className="p-3 border-t border-white/10 bg-white/[0.02]">
           <button
             onClick={logout}
-            className={`w-full flex items-center space-x-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-white/75 hover:text-white hover:bg-white/10 transition-colors cursor-pointer ${
+            className={`w-full flex items-center space-x-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-white/80 hover:text-white hover:bg-white/12 transition-colors cursor-pointer ${
               isCollapsed ? 'justify-center' : ''
             }`}
             title="Sign Out"
